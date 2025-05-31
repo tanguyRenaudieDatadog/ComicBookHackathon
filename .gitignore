@@ -2,3 +2,7 @@ images/
 *.png
 weights/
 *.pt
+.env
+*.ttf
+translated_comic_*
+temp_bubble_*

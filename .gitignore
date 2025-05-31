@@ -6,3 +6,7 @@ weights/
 *.ttf
 translated_comic_*
 temp_bubble_*
+__pycache__/
+*.pyc
+uploads/
+outputs/

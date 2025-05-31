@@ -1,0 +1,9 @@
+Flask==3.0.0
+ultralytics==8.3.146
+opencv-python==4.11.0.86
+Pillow==10.4.0
+llama-api-client==0.1.1
+python-dotenv==1.1.0
+numpy==1.26.4
+matplotlib==3.9.2
+Werkzeug==3.0.1 

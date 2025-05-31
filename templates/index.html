@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comic Book Translator - AI-Powered Translation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@300;400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-book-open"></i> Comic Book Translator</h1>
+            <p class="subtitle">Translate your favorite comics to any language with AI</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <div class="upload-card">
+                    <h2>Upload Your Comic Page</h2>
+                    
+                    <div class="language-selectors">
+                        <div class="language-group">
+                            <label for="source-lang">From:</label>
+                            <select id="source-lang" class="language-select">
+                                {% for code, name in languages.items() %}
+                                <option value="{{ code }}" {% if code == 'en' %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="arrow-icon">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                        
+                        <div class="language-group">
+                            <label for="target-lang">To:</label>
+                            <select id="target-lang" class="language-select">
+                                {% for code, name in languages.items() %}
+                                <option value="{{ code }}" {% if code == 'ru' %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="upload-area" id="upload-area">
+                        <input type="file" id="file-input" accept="image/*" hidden>
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                            <h3>Drop your comic page here</h3>
+                            <p>or <span class="browse-link">browse</span> to choose a file</p>
+                            <p class="file-types">Supports: PNG, JPG, JPEG, GIF, WEBP</p>
+                        </div>
+                        <div class="preview-container" id="preview-container" style="display: none;">
+                            <img id="preview-image" src="" alt="Preview">
+                            <button class="remove-btn" id="remove-btn">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button class="translate-btn" id="translate-btn" disabled>
+                        <i class="fas fa-language"></i> Start Translation
+                    </button>
+                </div>
+            </section>
+
+            <!-- Progress Section -->
+            <section class="progress-section" id="progress-section" style="display: none;">
+                <div class="progress-card">
+                    <h2>Translation in Progress</h2>
+                    <div class="progress-content">
+                        <div class="progress-animation">
+                            <div class="comic-animation">
+                                <i class="fas fa-book"></i>
+                                <i class="fas fa-arrow-right"></i>
+                                <i class="fas fa-robot"></i>
+                                <i class="fas fa-arrow-right"></i>
+                                <i class="fas fa-language"></i>
+                            </div>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="progress-bar"></div>
+                        </div>
+                        <p class="progress-text" id="progress-text">Detecting speech bubbles...</p>
+                        <div class="progress-steps">
+                            <div class="step active" id="step-1">
+                                <i class="fas fa-search"></i>
+                                <span>Detect Bubbles</span>
+                            </div>
+                            <div class="step" id="step-2">
+                                <i class="fas fa-eye"></i>
+                                <span>Extract Text</span>
+                            </div>
+                            <div class="step" id="step-3">
+                                <i class="fas fa-language"></i>
+                                <span>Translate</span>
+                            </div>
+                            <div class="step" id="step-4">
+                                <i class="fas fa-paint-brush"></i>
+                                <span>Apply Text</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Result Section -->
+            <section class="result-section" id="result-section" style="display: none;">
+                <div class="result-card">
+                    <h2><i class="fas fa-check-circle"></i> Translation Complete!</h2>
+                    <div class="result-content">
+                        <div class="result-preview">
+                            <img id="result-image" src="" alt="Translated Comic">
+                        </div>
+                        <div class="result-actions">
+                            <button class="download-btn" id="download-btn">
+                                <i class="fas fa-download"></i> Download Translated Comic
+                            </button>
+                            <button class="new-translation-btn" id="new-translation-btn">
+                                <i class="fas fa-plus"></i> New Translation
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section" id="error-section" style="display: none;">
+                <div class="error-card">
+                    <h2><i class="fas fa-exclamation-circle"></i> Translation Failed</h2>
+                    <p class="error-message" id="error-message"></p>
+                    <button class="retry-btn" id="retry-btn">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Powered by Llama 4 AI and YOLOv8 • Made with <i class="fas fa-heart"></i> for comic lovers</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html> 

@@ -14,17 +14,18 @@ from translation_context import TranslationContext
 # Load environment variables
 load_dotenv()
 
-def load_speech_bubble_model():
+def load_speech_bubble_model(debug=False):
     """Load the finetuned YOLOv8 model for speech bubble detection"""
     try:
         model = YOLO('weights/ogkalu_model.pt')
-        print("✅ Successfully loaded speech bubble detection model")
+        if debug:
+            print("✅ Successfully loaded speech bubble detection model")
         return model
     except Exception as e:
         print(f"❌ Error loading model: {e}")
         return None
 
-def detect_speech_bubbles(model, image_path, conf_threshold=0.5):
+def detect_speech_bubbles(model, image_path, conf_threshold=0.5, debug=False):
     """Detect speech bubbles in an image using the loaded model"""
     results = model(image_path, conf=conf_threshold)
     
@@ -49,7 +50,10 @@ def detect_speech_bubbles(model, image_path, conf_threshold=0.5):
                 }
                 bubble_data.append(bubble_info)
     
-    print(f"🔍 Detected {len(bubble_data)} speech bubbles")
+    if debug:
+        print(f"🔍 Detected {len(bubble_data)} speech bubbles")
+    else:
+        print(f"🔍 Found {len(bubble_data)} speech bubbles")
     return bubble_data
 
 def encode_image(image_path):
@@ -74,7 +78,7 @@ def crop_bubble_region(image_path, bubble_info, padding=10):
     
     return temp_path
 
-def extract_text_from_bubble(client, bubble_image_path, bubble_info):
+def extract_text_from_bubble(client, bubble_image_path, bubble_info, debug=False):
     """Extract text from a single bubble using Llama's vision capabilities"""
     base64_image = encode_image(bubble_image_path)
     
@@ -111,12 +115,13 @@ def extract_text_from_bubble(client, bubble_image_path, bubble_info):
         
         return extracted_text
     except Exception as e:
-        print(f"Error extracting text from bubble {bubble_info['bubble_id']}: {e}")
+        if debug:
+            print(f"Error extracting text from bubble {bubble_info['bubble_id']}: {e}")
         if os.path.exists(bubble_image_path):
             os.remove(bubble_image_path)
         return "ERROR"
 
-def translate_text(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian"):
+def translate_text(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian", debug=False):
     """Translate text using Llama with context awareness"""
     if text in ["EMPTY", "ERROR"]:
         return text
@@ -160,10 +165,11 @@ Text to translate: {text}""")
         
         return translated
     except Exception as e:
-        print(f"Error translating text: {e}")
+        if debug:
+            print(f"Error translating text: {e}")
         return text
 
-def draw_text_in_bubble(draw, text, bubble_info, font_path=None, max_font_size=40):
+def draw_text_in_bubble(draw, text, bubble_info, font_path=None, max_font_size=40, debug=False):
     """Draw text inside a bubble, automatically wrapping and sizing to fit"""
     x = bubble_info['x']
     y = bubble_info['y']
@@ -188,7 +194,8 @@ def draw_text_in_bubble(draw, text, bubble_info, font_path=None, max_font_size=4
     for font_candidate in cyrillic_fonts:
         if os.path.exists(font_candidate):
             font_to_use = font_candidate
-            print(f"Using font: {font_candidate}")
+            if debug:
+                print(f"Using font: {font_candidate}")
             break
     
     if not font_to_use and font_path and os.path.exists(font_path):
@@ -200,10 +207,12 @@ def draw_text_in_bubble(draw, text, bubble_info, font_path=None, max_font_size=4
                 font = ImageFont.truetype(font_to_use, font_size)
             else:
                 # Fallback to default, but warn user
-                print("⚠️ Warning: No Cyrillic font found, text may not display correctly!")
+                if debug:
+                    print("⚠️ Warning: No Cyrillic font found, text may not display correctly!")
                 font = ImageFont.load_default()
         except Exception as e:
-            print(f"Error loading font: {e}")
+            if debug:
+                print(f"Error loading font: {e}")
             font = ImageFont.load_default()
         
         # Wrap text to fit width
@@ -250,7 +259,7 @@ def draw_text_in_bubble(draw, text, bubble_info, font_path=None, max_font_size=4
     draw.text((x + 5, y + 5), text[:20] + "...", font=font, fill='black')
     return False
 
-def process_comic_page(image_path, output_path, api_key=None):
+def process_comic_page(image_path, output_path, api_key=None, debug=False):
     """Main function to process a comic page with context-aware translation"""
     # Initialize Llama client
     client = LlamaAPIClient(
@@ -261,57 +270,62 @@ def process_comic_page(image_path, output_path, api_key=None):
     context_manager = TranslationContext()
     
     # Load bubble detection model
-    bubble_model = load_speech_bubble_model()
+    bubble_model = load_speech_bubble_model(debug)
     if not bubble_model:
         return
     
     # Detect bubbles
-    print("\n📍 Detecting speech bubbles...")
-    bubble_data = detect_speech_bubbles(bubble_model, image_path, conf_threshold=0.3)
+    print("📍 Detecting speech bubbles...")
+    bubble_data = detect_speech_bubbles(bubble_model, image_path, conf_threshold=0.3, debug=debug)
     
     # Sort bubbles by position (top to bottom, left to right) for better context flow
     bubble_data.sort(key=lambda b: (b['y'], b['x']))
     
     # Extract text from each bubble
-    print("\n📖 Extracting text from bubbles...")
+    print("📖 Extracting text from bubbles...")
     for bubble in bubble_data:
         # Crop bubble region
         bubble_image = crop_bubble_region(image_path, bubble)
         
         # Extract text
-        bubble['original_text'] = extract_text_from_bubble(client, bubble_image, bubble)
-        print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
+        bubble['original_text'] = extract_text_from_bubble(client, bubble_image, bubble, debug)
+        if debug:
+            print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
     
     # Translate texts with accumulating context
-    print("\n🌐 Translating texts to Russian with context awareness...")
-    print("Context will accumulate as translation progresses for better accuracy.\n")
+    print("🌐 Translating texts to Russian with context awareness...")
+    if debug:
+        print("Context will accumulate as translation progresses for better accuracy.\n")
     
     for i, bubble in enumerate(bubble_data):
         if bubble['original_text'] not in ["EMPTY", "ERROR"]:
             # Show context status
-            context_size = len(context_manager.context_window)
-            print(f"Translating bubble {bubble['bubble_id']} (with {context_size} previous bubbles as context)")
+            if debug:
+                context_size = len(context_manager.context_window)
+                print(f"Translating bubble {bubble['bubble_id']} (with {context_size} previous bubbles as context)")
             
             # Translate with context
             bubble['translated_text'] = translate_text(
                 client, 
                 bubble['original_text'],
                 context_manager=context_manager,
-                bubble_id=bubble['bubble_id']
+                bubble_id=bubble['bubble_id'],
+                debug=debug
             )
             
-            print(f"✓ {bubble['original_text']} → {bubble['translated_text']}\n")
+            if debug:
+                print(f"✓ {bubble['original_text']} → {bubble['translated_text']}\n")
         else:
             bubble['translated_text'] = bubble['original_text']
     
     # Generate and print summary
     summary = context_manager.generate_summary()
-    if summary:
+    if summary and debug:
         print("\n📊 Translation Context Summary:")
         print(summary)
     
     # Create image with white bubbles
-    print("\n🎨 Creating output image...")
+    print("🎨 Creating output image...")
     img = Image.open(image_path).convert("RGBA")
     draw = ImageDraw.Draw(img)
     
@@ -337,11 +351,11 @@ def process_comic_page(image_path, output_path, api_key=None):
     # Then, draw translated text
     for bubble in bubble_data:
         if bubble['translated_text'] not in ["EMPTY", "ERROR"]:
-            draw_text_in_bubble(draw, bubble['translated_text'], bubble)
+            draw_text_in_bubble(draw, bubble['translated_text'], bubble, debug=debug)
     
     # Save result
     img.save(output_path)
-    print(f"\n✅ Saved translated comic to: {output_path}")
+    print(f"✅ Saved translated comic to: {output_path}")
     
     # Save translation data with context
     translation_data = {
@@ -360,14 +374,23 @@ def process_comic_page(image_path, output_path, api_key=None):
     json_path = output_path.replace('.png', '_translations.json')
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(translation_data, f, ensure_ascii=False, indent=2)
-    print(f"📝 Saved translation data to: {json_path}")
+    if debug:
+        print(f"📝 Saved translation data to: {json_path}")
     
     # Save context separately for reuse
     context_path = output_path.replace('.png', '_context.json')
     context_manager.save_context(context_path)
-    print(f"📚 Saved translation context to: {context_path}")
+    if debug:
+        print(f"📚 Saved translation context to: {context_path}")
 
 if __name__ == "__main__":
+    import sys
+    
+    # Check for debug flag
+    debug_mode = "--debug" in sys.argv
+    if debug_mode:
+        sys.argv.remove("--debug")
+    
     # Process the comic page
     input_image = "image.png"
     output_image = "translated_comic_russian.png"
@@ -379,4 +402,6 @@ if __name__ == "__main__":
     if not api_key:
         print("❌ Error: api_key not found in .env file")
     else:
-        process_comic_page(input_image, output_image, api_key) 
+        if debug_mode:
+            print("🐛 Debug mode enabled")
+        process_comic_page(input_image, output_image, api_key, debug=debug_mode) 

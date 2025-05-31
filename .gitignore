@@ -6,4 +6,7 @@ weights/
 *.ttf
 translated_comic_*
 temp_bubble_*
-.env
+*.json
+__pycache__/
+.DS_Store
+*.pdf

@@ -10,13 +10,14 @@ from translation_context import TranslationContext
 from translate_and_fill_bubbles import process_comic_page
 from dotenv import load_dotenv
 
-def translate_comic_series(page_files, output_prefix="translated_page"):
+def translate_comic_series(page_files, output_prefix="translated_page", debug=False):
     """
     Translate a series of comic pages with continuous context
     
     Args:
         page_files: List of input image filenames
         output_prefix: Prefix for output files
+        debug: Enable detailed output
     """
     # Load environment variables
     load_dotenv()
@@ -31,9 +32,12 @@ def translate_comic_series(page_files, output_prefix="translated_page"):
     
     for i, page_file in enumerate(page_files):
         page_num = i + 1
-        print(f"\n{'='*60}")
-        print(f"📖 Processing Page {page_num}: {page_file}")
-        print(f"{'='*60}")
+        if debug:
+            print(f"\n{'='*60}")
+            print(f"📖 Processing Page {page_num}: {page_file}")
+            print(f"{'='*60}")
+        else:
+            print(f"\n📖 Processing page {page_num}/{len(page_files)}: {os.path.basename(page_file)}")
         
         # Check if we have previous context
         if i > 0:
@@ -41,25 +45,35 @@ def translate_comic_series(page_files, output_prefix="translated_page"):
             prev_context_file = f"{output_prefix}_{i}_context.json"
             if os.path.exists(prev_context_file):
                 context_manager.load_context(prev_context_file)
-                print(f"✓ Loaded context from {len(context_manager.context_window)} previous bubbles")
-                print(f"✓ Known characters: {', '.join(context_manager.character_names)}")
+                if debug:
+                    print(f"✓ Loaded context from {len(context_manager.context_window)} previous bubbles")
+                    print(f"✓ Known characters: {', '.join(context_manager.character_names)}")
         
         # Process current page
         output_file = f"{output_prefix}_{page_num}.png"
         
-        # TODO: Modify process_comic_page to accept existing context
-        # For now, this shows the concept
-        process_comic_page(page_file, output_file, api_key)
+        process_comic_page(page_file, output_file, api_key, debug=debug)
         
-        print(f"\n✅ Completed Page {page_num}")
+        if debug:
+            print(f"\n✅ Completed Page {page_num}")
     
-    print(f"\n{'='*60}")
-    print("🎉 All pages translated successfully!")
-    print(f"Total context accumulated: {len(context_manager.context_window)} dialogue bubbles")
+    if debug:
+        print(f"\n{'='*60}")
+        print("🎉 All pages translated successfully!")
+        print(f"Total context accumulated: {len(context_manager.context_window)} dialogue bubbles")
+    else:
+        print("\n🎉 All pages translated successfully!")
 
 
 # Example usage
 if __name__ == "__main__":
+    import sys
+    
+    # Check for debug flag
+    debug_mode = "--debug" in sys.argv
+    if debug_mode:
+        sys.argv.remove("--debug")
+    
     # Example for translating multiple pages
     comic_pages = [
         "page1.png",
@@ -72,9 +86,13 @@ if __name__ == "__main__":
     
     if existing_pages:
         print(f"Found {len(existing_pages)} pages to translate")
-        translate_comic_series(existing_pages)
+        if debug_mode:
+            print("🐛 Debug mode enabled")
+        translate_comic_series(existing_pages, debug=debug_mode)
     else:
         print("ℹ️  This is an example script for multi-page translation.")
         print("To use it, add your comic page files (page1.png, page2.png, etc.)")
         print("\nFor single page translation, use:")
-        print("  python translate_and_fill_bubbles.py") 
+        print("  python translate_and_fill_bubbles.py [--debug]")
+        print("\nFor debug mode, add --debug flag:")
+        print("  python translate_multipage.py --debug") 

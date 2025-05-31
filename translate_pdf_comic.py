@@ -73,7 +73,8 @@ def extract_pdf_pages(pdf_path, output_dir="temp_pdf_pages", dpi=300, debug=Fals
     return extracted_files
 
 def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page", 
-                       temp_dir="temp_pdf_pages", dpi=300, cleanup=True, debug=False):
+                       temp_dir="temp_pdf_pages", dpi=300, cleanup=True, debug=False,
+                       source_lang="English", target_lang="Russian"):
     """
     Complete pipeline to translate a PDF comic book
     
@@ -84,6 +85,8 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
         dpi: Resolution for page extraction
         cleanup: Whether to delete temporary files after processing
         debug: Enable detailed output
+        source_lang: Source language name (e.g., "English")
+        target_lang: Target language name (e.g., "Spanish")
     
     Returns:
         List of translated image file paths
@@ -107,9 +110,11 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
         print(f"🚀 Starting PDF Comic Translation Pipeline")
         print(f"📁 Input PDF: {pdf_path}")
         print(f"🎯 Output prefix: {output_prefix}")
+        print(f"🌐 Translation: {source_lang} → {target_lang}")
         print(f"{'='*80}\n")
     else:
         print(f"🚀 Starting PDF comic translation: {os.path.basename(pdf_path)}")
+        print(f"🌐 Translation: {source_lang} → {target_lang}")
     
     try:
         # Step 1: Extract pages from PDF
@@ -124,7 +129,7 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
         # Step 2: Translate all pages with context preservation
         if debug:
             print(f"\n📋 Step 2: Translating {len(page_files)} pages with context preservation...")
-        translate_comic_series(page_files, output_prefix, debug)
+        translate_comic_series(page_files, output_prefix, debug, source_lang=source_lang, target_lang=target_lang)
         
         # Step 3: Generate list of output files
         translated_files = []

@@ -10,7 +10,7 @@ from translation_context import TranslationContext
 from translate_and_fill_bubbles import process_comic_page
 from dotenv import load_dotenv
 
-def translate_comic_series(page_files, output_prefix="translated_page", debug=False):
+def translate_comic_series(page_files, output_prefix="translated_page", debug=False, source_lang="English", target_lang="Russian"):
     """
     Translate a series of comic pages with continuous context
     
@@ -18,6 +18,8 @@ def translate_comic_series(page_files, output_prefix="translated_page", debug=Fa
         page_files: List of input image filenames
         output_prefix: Prefix for output files
         debug: Enable detailed output
+        source_lang: Source language name (e.g., "English")
+        target_lang: Target language name (e.g., "Spanish")
     """
     # Load environment variables
     load_dotenv()
@@ -35,6 +37,7 @@ def translate_comic_series(page_files, output_prefix="translated_page", debug=Fa
         if debug:
             print(f"\n{'='*60}")
             print(f"📖 Processing Page {page_num}: {page_file}")
+            print(f"🌐 Translation: {source_lang} → {target_lang}")
             print(f"{'='*60}")
         else:
             print(f"\n📖 Processing page {page_num}/{len(page_files)}: {os.path.basename(page_file)}")
@@ -52,7 +55,9 @@ def translate_comic_series(page_files, output_prefix="translated_page", debug=Fa
         # Process current page
         output_file = f"{output_prefix}_{page_num}.png"
         
-        process_comic_page(page_file, output_file, api_key, debug=debug)
+        # Use the multilang version of process_comic_page
+        from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
+        process_comic_page_with_languages(page_file, output_file, api_key, source_lang, target_lang)
         
         if debug:
             print(f"\n✅ Completed Page {page_num}")

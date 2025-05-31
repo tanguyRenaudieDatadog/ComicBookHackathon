@@ -76,9 +76,11 @@ function handleDrop(e) {
 
 function validateFile(file) {
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+    const isImage = validTypes.includes(file.type);
+    const isPDF = file.name.toLowerCase().endsWith('.pdf');
     
-    if (!validTypes.includes(file.type)) {
-        showError('Please upload a valid image file (PNG, JPG, JPEG, GIF, WEBP)');
+    if (!isImage && !isPDF) {
+        showError('Please upload a valid image or PDF file');
         return false;
     }
     
@@ -93,7 +95,12 @@ function validateFile(file) {
 function displayPreview(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-        previewImage.src = e.target.result;
+        if (file.type.startsWith('image/')) {
+            previewImage.src = e.target.result;
+        } else if (file.name.toLowerCase().endsWith('.pdf')) {
+            // Show PDF icon for PDF files
+            previewImage.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzODQgNTEyIj48cGF0aCBmaWxsPSIjNjY2IiBkPSJNMzY0LjIgODMuOUwyODguMSA3LjhDMjgyLjYgMi44IDI3NS4yIDAgMjY3LjUgMEg2NEM0Ni4zIDAgMzIgMTQuMyAzMiAzMnY0NDhjMCAxNy43IDE0LjMgMzIgMzIgMzJoMjg4YzE3LjcgMCAzMi0xNC4zIDMyLTMyVjk2LjVjMC03LjctMi44LTE1LjEtNy44LTIwLjZ6TTI4OCAzNDRjMCAxMy4zLTEwLjcgMjQtMjQgMjRzLTI0LTEwLjctMjQtMjRWMTkyYzAtMTMuMyAxMC43LTI0IDI0LTI0czI0IDEwLjcgMjQgMjR2MTUyek0xOTIgMzQ0YzAgMTMuMy0xMC43IDI0LTI0IDI0cy0yNC0xMC43LTI0LTI0VjE5MmMwLTEzLjMgMTAuNy0yNCAyNC0yNHMyNCAxMC43IDI0IDI0djE1MnpNOTYgMzQ0YzAgMTMuMy0xMC43IDI0LTI0IDI0cy0yNC0xMC43LTI0LTI0VjE5MmMwLTEzLjMgMTAuNy0yNCAyNC0yNHMyNCAxMC43IDI0IDI0djE1MnoiLz48L3N2Zz4=';
+        }
         uploadContent.style.display = 'none';
         previewContainer.style.display = 'block';
         translateBtn.disabled = false;
@@ -161,7 +168,7 @@ async function pollStatus() {
             updateProgress(data.progress);
             
             if (data.status === 'completed') {
-                showResult();
+                showResult(data.is_pdf, data.all_pages);
             } else if (data.status === 'failed') {
                 showError(data.error || 'Translation failed');
             } else {
@@ -198,7 +205,7 @@ function updateProgress(progress) {
     }
 }
 
-function showResult() {
+function showResult(isPdf, allPages) {
     uploadSection.style.display = 'none';
     progressSection.style.display = 'none';
     resultSection.style.display = 'block';
@@ -206,6 +213,17 @@ function showResult() {
     
     // Set result image
     resultImage.src = `/download/${currentJobId}`;
+    
+    // Update download button text for PDFs
+    if (isPdf) {
+        downloadBtn.innerHTML = '<i class="fas fa-download"></i> Download All Pages';
+        downloadBtn.onclick = () => {
+            window.location.href = `/download/all/${currentJobId}`;
+        };
+    } else {
+        downloadBtn.innerHTML = '<i class="fas fa-download"></i> Download Translated Comic';
+        downloadBtn.onclick = downloadResult;
+    }
 }
 
 function showError(message) {

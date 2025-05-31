@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 import threading
 from translate_and_fill_bubbles import process_comic_page
+from translate_pdf_comic import translate_pdf_comic, images_to_pdf
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -39,7 +40,7 @@ SUPPORTED_LANGUAGES = {
     'hi': 'Hindi'
 }
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -79,7 +80,8 @@ def upload_file():
             'output_file': None,
             'source_lang': source_lang,
             'target_lang': target_lang,
-            'error': None
+            'error': None,
+            'is_pdf': filename.lower().endswith('.pdf')
         }
         
         # Start translation in background thread
@@ -99,10 +101,6 @@ def process_translation(job_id, input_path, source_lang, target_lang):
         # Update progress
         translation_jobs[job_id]['progress'] = 10
         
-        # Generate output filename
-        output_filename = f"translated_{job_id}.png"
-        output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
-        
         # Get API key
         api_key = os.getenv("api_key")
         if not api_key:
@@ -111,19 +109,51 @@ def process_translation(job_id, input_path, source_lang, target_lang):
         # Update progress
         translation_jobs[job_id]['progress'] = 30
         
-        # Process the comic with language parameters
-        process_comic_page_multilang(
-            input_path, 
-            output_path, 
-            api_key,
-            source_lang=SUPPORTED_LANGUAGES[source_lang],
-            target_lang=SUPPORTED_LANGUAGES[target_lang]
-        )
+        # Check if this is a PDF
+        is_pdf = translation_jobs[job_id]['is_pdf']
+        
+        if is_pdf:
+            # Process PDF comic
+            output_prefix = os.path.join(app.config['OUTPUT_FOLDER'], f"translated_{job_id}")
+            translated_files = translate_pdf_comic(
+                input_path,
+                output_prefix=output_prefix,
+                temp_dir=f"temp_{job_id}_pages",
+                debug=False,
+                source_lang=SUPPORTED_LANGUAGES[source_lang],
+                target_lang=SUPPORTED_LANGUAGES[target_lang]
+            )
+            
+            if not translated_files:
+                raise Exception("Failed to translate PDF")
+            
+            # Combine translated images back into PDF
+            output_pdf = os.path.join(app.config['OUTPUT_FOLDER'], f"translated_{job_id}.pdf")
+            images_to_pdf(translated_files, output_pdf)
+            
+            # Store both the PDF and individual images
+            translation_jobs[job_id]['output_file'] = translated_files[0]  # First page for preview
+            translation_jobs[job_id]['all_pages'] = translated_files
+            translation_jobs[job_id]['pdf_file'] = output_pdf
+        else:
+            # Process single image
+            output_filename = f"translated_{job_id}.png"
+            output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
+            
+            # Process the comic with language parameters
+            process_comic_page_multilang(
+                input_path, 
+                output_path, 
+                api_key,
+                source_lang=SUPPORTED_LANGUAGES[source_lang],
+                target_lang=SUPPORTED_LANGUAGES[target_lang]
+            )
+            
+            translation_jobs[job_id]['output_file'] = output_path
         
         # Update job status
         translation_jobs[job_id]['status'] = 'completed'
         translation_jobs[job_id]['progress'] = 100
-        translation_jobs[job_id]['output_file'] = output_path
         
     except Exception as e:
         translation_jobs[job_id]['status'] = 'failed'
@@ -138,7 +168,9 @@ def get_status(job_id):
     return jsonify({
         'status': job['status'],
         'progress': job['progress'],
-        'error': job['error']
+        'error': job['error'],
+        'is_pdf': job.get('is_pdf', False),
+        'all_pages': job.get('all_pages', [])
     })
 
 @app.route('/download/<job_id>')
@@ -156,6 +188,33 @@ def download_result(job_id):
         download_name=f"translated_comic_{job_id}.png"
     )
 
+@app.route('/download/all/<job_id>')
+def download_all_pages(job_id):
+    if job_id not in translation_jobs:
+        return jsonify({'error': 'Job not found'}), 404
+    
+    job = translation_jobs[job_id]
+    if job['status'] != 'completed':
+        return jsonify({'error': 'Translation not ready'}), 400
+    
+    # For PDFs, return the combined PDF
+    if job.get('is_pdf') and job.get('pdf_file'):
+        return send_file(
+            job['pdf_file'],
+            as_attachment=True,
+            download_name=f"translated_comic_{job_id}.pdf"
+        )
+    
+    # For single images, return the image
+    if job.get('output_file'):
+        return send_file(
+            job['output_file'],
+            as_attachment=True,
+            download_name=f"translated_comic_{job_id}.png"
+        )
+    
+    return jsonify({'error': 'No output file available'}), 400
+
 # Import and modify the process_comic_page function to support multiple languages
 def process_comic_page_multilang(image_path, output_path, api_key, source_lang="English", target_lang="Russian"):
     """Wrapper to call process_comic_page with language parameters"""
@@ -165,4 +224,4 @@ def process_comic_page_multilang(image_path, output_path, api_key, source_lang="
     process_comic_page_with_languages(image_path, output_path, api_key, source_lang, target_lang)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    app.run(debug=True, host='localhost', port=8080) 

@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import matplotlib.pyplot as plt
 
 MODEL_PATH = 'weights/ogkalu_model.pt'
@@ -209,50 +209,128 @@ def draw_white_ellipses_on_boxes(image_path, box_data, output_path=None, debug=T
     
     return img
 
+def add_translations_to_bubbles(image_path, translations, model, font_path="Death_Note.ttf", 
+                               conf_threshold=0.3, font_size_base=16, output_path=None):
+    """
+    Add translations to detected speech bubbles on top of white ellipses
+    
+    Args:
+        image_path: Path to the image
+        translations: List of translation strings
+        model: Loaded YOLO model for bubble detection
+        font_path: Path to the font file
+        conf_threshold: Confidence threshold for bubble detection
+        font_size_base: Base font size (will be adjusted per bubble)
+        output_path: Path to save the translated image
+    
+    Returns:
+        PIL Image object with translations added on white ellipses
+    """
+    # Detect speech bubbles
+    results, bubble_data = detect_speech_bubbles(model, image_path, conf_threshold)
+    
+    # Sort bubbles by position (top-left to bottom-right reading order)
+    bubble_data_sorted = sorted(bubble_data, key=lambda b: (b['y'], b['x']))
+    
+    # First, draw white ellipses over the detected bubbles
+    image_with_ellipses = draw_white_ellipses_on_boxes(
+        image_path, bubble_data_sorted, debug=False
+    )
+    
+    # Create a drawing context on the image with ellipses
+    draw = ImageDraw.Draw(image_with_ellipses)
+    
+    print(f"🔍 Found {len(bubble_data_sorted)} bubbles, have {len(translations)} translations")
+    
+    # Apply translations to bubbles
+    num_translations = min(len(bubble_data_sorted), len(translations))
+    
+    for i in range(num_translations):
+        bubble = bubble_data_sorted[i]
+        text = translations[i]
+        
+        # Calculate font size based on bubble size
+        bubble_area = bubble['width'] * bubble['height']
+        font_size = max(12, min(24, int(font_size_base * (bubble_area / 10000) ** 0.3)))
+        
+        try:
+            font = ImageFont.truetype(font_path, font_size)
+        except:
+            # Fallback to default font if custom font not found
+            font = ImageFont.load_default()
+            print(f"⚠️  Could not load {font_path}, using default font")
+        
+        # Position text at the center of the bubble
+        text_x = bubble['center_x'] - 50  # Offset to center text better
+        text_y = bubble['center_y'] - 10
+        
+        # Ensure text stays within image bounds
+        text_x = max(10, min(text_x, image_with_ellipses.width - 100))
+        text_y = max(10, min(text_y, image_with_ellipses.height - 20))
+        
+        # Draw the translation on top of the white ellipse
+        draw.text((text_x, text_y), text, fill="black", font=font)
+        
+        print(f"✅ Added translation {i+1}: '{text[:30]}...' at bubble center ({bubble['center_x']}, {bubble['center_y']})")
+    
+    # Save if output path provided
+    if output_path:
+        image_with_ellipses.save(output_path)
+        print(f"💾 Saved translated image to: {output_path}")
+    
+    return image_with_ellipses
 
-# Example usage
-if __name__ == "__main__":
+# Example usage function
+def translate_manga_page(image_path, translations_italian, output_path="translated_manga.png"):
+    """
+    Complete pipeline to translate a manga page
+    
+    Args:
+        image_path: Path to the manga image
+        translations_italian: List of Italian translations
+        output_path: Path to save the result
+    """
     # Load the model
     model = load_speech_bubble_model()
     
-    if model is not None:
-        # Test with your image
-        image_path = "image.png"  # or "ComicBookHackathon/image.png"
-        
-        # Method 1: Using detect_speech_bubbles (bounding boxes only)
-        print("=== Using detect_speech_bubbles ===")
-        results, bubble_data = detect_speech_bubbles(model, image_path, conf_threshold=0.3)
-        
-        # Print detection results
-        print("\n📊 Detection Results:")
-        for i, bubble in enumerate(bubble_data):
-            print(f"Bubble {i+1}: x={bubble['x']}, y={bubble['y']}, "
-                  f"w={bubble['width']}, h={bubble['height']}, "
-                  f"confidence={bubble['confidence']:.3f}")
-        
-        # Visualize results
-        visualize_detections(image_path, bubble_data, save_path="detected_bubbles.png")
-        
-        # Draw ellipses using detection results
-        img_with_ellipses = draw_white_ellipses_on_boxes(
-            image_path, bubble_data, 
-            output_path="image_with_ellipses_detection.png"
-        )
-        
-        # Method 2: Using get_segmentation_masks (if available)
-        print("\n=== Using get_segmentation_masks ===")
-        try:
-            masks_data = get_segmentation_masks(model, image_path, conf_threshold=0.3)
-            if masks_data:
-                print(f"🎭 Got {len(masks_data)} segmentation masks")
-                
-                # Draw ellipses using segmentation mask bboxes
-                img_with_ellipses_seg = draw_white_ellipses_on_boxes(
-                    image_path, masks_data,
-                    output_path="image_with_ellipses_segmentation.png"
-                )
-                print("✅ Created ellipses from segmentation masks")
-            else:
-                print("ℹ️  No segmentation masks available (model might be detection-only)")
-        except Exception as e:
-            print(f"ℹ️  Segmentation not available: {e}") 
+    if model is None:
+        print("❌ Could not load model")
+        return None
+    
+    # Add translations to detected bubbles
+    translated_image = add_translations_to_bubbles(
+        image_path=image_path,
+        translations=translations_italian,
+        model=model,
+        font_path="Death_Note.ttf",
+        conf_threshold=0.3,
+        output_path=output_path
+    )
+    
+    # Display the result
+    plt.figure(figsize=(12, 16))
+    plt.imshow(translated_image)
+    plt.axis('off')
+    plt.title('Translated Manga Page')
+    plt.tight_layout()
+    plt.show()
+    
+    return translated_image
+
+# Example usage
+if __name__ == "__main__":
+    # Italian translations
+    translations_italian = [
+        "Figlia, mostra il dovuto rispetto al Signore del Fuoco.",
+        "Signore del Fuoco Azulon!",
+        "Ursa, giusto? Alzati, lasciami darti un'occhiata.",
+        "Magistrato Jinzuk, tua moglie ha cresciuto una figlia ancora più bella dei suoi fiori!",
+        "Abbiamo avuto molte difficoltà a trovare i discendenti dell'Avatar Roku. Sembrava volersi nascondere da noi!",
+        "Ma ora è chiaro che lo sforzo è stato utile. I saggi del fuoco mi dicono che l'unione della nipote dell'Avatar con mio figlio genererà una stirpe potente, che garantirà il dominio della mia famiglia per secoli dopo la mia morte.",
+        "Ursa, permettimi di presentarti il principe del fuoco Ozai, il mio secondogenito.",
+        "Ha una proposta per te."
+    ]
+    
+    # Use the complete pipeline
+    image_path = "image.png"
+    translated_image = translate_manga_page(image_path, translations_italian) 

@@ -9,6 +9,7 @@ from ultralytics import YOLO
 from llama_api_client import LlamaAPIClient
 from dotenv import load_dotenv
 import textwrap
+from translation_context import TranslationContext
 
 # Load environment variables
 load_dotenv()
@@ -115,16 +116,30 @@ def extract_text_from_bubble(client, bubble_image_path, bubble_info):
             os.remove(bubble_image_path)
         return "ERROR"
 
-def translate_text(client, text, source_lang="English", target_lang="Russian"):
-    """Translate text using Llama"""
+def translate_text(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian"):
+    """Translate text using Llama with context awareness"""
     if text in ["EMPTY", "ERROR"]:
         return text
-        
-    prompt = f"""Translate the following {source_lang} text to {target_lang}. 
-    Return ONLY the translated text, nothing else.
-    Keep the translation natural and appropriate for comic book dialogue.
     
-    Text to translate: {text}"""
+    # Build context-aware prompt
+    prompt_parts = []
+    
+    # Add context if available
+    if context_manager:
+        context_prompt = context_manager.get_context_prompt(max_previous_bubbles=8)
+        if context_prompt:
+            prompt_parts.append("You are translating a comic book. Here's the context so far:")
+            prompt_parts.append(context_prompt)
+            prompt_parts.append("\n" + "="*50 + "\n")
+    
+    prompt_parts.append(f"""Now translate the following {source_lang} text to {target_lang}.
+Consider the context and maintain consistency with character names and tone.
+Return ONLY the translated text, nothing else.
+Keep the translation natural and appropriate for comic book dialogue.
+
+Text to translate: {text}""")
+    
+    prompt = "\n".join(prompt_parts)
     
     try:
         response = client.chat.completions.create(
@@ -137,7 +152,13 @@ def translate_text(client, text, source_lang="English", target_lang="Russian"):
             ],
         )
         
-        return response.completion_message.content.text.strip()
+        translated = response.completion_message.content.text.strip()
+        
+        # Add to context after successful translation
+        if context_manager and bubble_id:
+            context_manager.add_bubble_to_context(bubble_id, text, translated)
+        
+        return translated
     except Exception as e:
         print(f"Error translating text: {e}")
         return text
@@ -230,11 +251,14 @@ def draw_text_in_bubble(draw, text, bubble_info, font_path=None, max_font_size=4
     return False
 
 def process_comic_page(image_path, output_path, api_key=None):
-    """Main function to process a comic page"""
+    """Main function to process a comic page with context-aware translation"""
     # Initialize Llama client
     client = LlamaAPIClient(
         api_key=api_key or os.environ.get("LLAMA_API_KEY")
     )
+    
+    # Initialize context manager
+    context_manager = TranslationContext()
     
     # Load bubble detection model
     bubble_model = load_speech_bubble_model()
@@ -244,6 +268,9 @@ def process_comic_page(image_path, output_path, api_key=None):
     # Detect bubbles
     print("\n📍 Detecting speech bubbles...")
     bubble_data = detect_speech_bubbles(bubble_model, image_path, conf_threshold=0.3)
+    
+    # Sort bubbles by position (top to bottom, left to right) for better context flow
+    bubble_data.sort(key=lambda b: (b['y'], b['x']))
     
     # Extract text from each bubble
     print("\n📖 Extracting text from bubbles...")
@@ -255,14 +282,33 @@ def process_comic_page(image_path, output_path, api_key=None):
         bubble['original_text'] = extract_text_from_bubble(client, bubble_image, bubble)
         print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
     
-    # Translate texts
-    print("\n🌐 Translating texts to Russian...")
-    for bubble in bubble_data:
+    # Translate texts with accumulating context
+    print("\n🌐 Translating texts to Russian with context awareness...")
+    print("Context will accumulate as translation progresses for better accuracy.\n")
+    
+    for i, bubble in enumerate(bubble_data):
         if bubble['original_text'] not in ["EMPTY", "ERROR"]:
-            bubble['translated_text'] = translate_text(client, bubble['original_text'])
-            print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']} → {bubble['translated_text']}")
+            # Show context status
+            context_size = len(context_manager.context_window)
+            print(f"Translating bubble {bubble['bubble_id']} (with {context_size} previous bubbles as context)")
+            
+            # Translate with context
+            bubble['translated_text'] = translate_text(
+                client, 
+                bubble['original_text'],
+                context_manager=context_manager,
+                bubble_id=bubble['bubble_id']
+            )
+            
+            print(f"✓ {bubble['original_text']} → {bubble['translated_text']}\n")
         else:
             bubble['translated_text'] = bubble['original_text']
+    
+    # Generate and print summary
+    summary = context_manager.generate_summary()
+    if summary:
+        print("\n📊 Translation Context Summary:")
+        print(summary)
     
     # Create image with white bubbles
     print("\n🎨 Creating output image...")
@@ -297,7 +343,7 @@ def process_comic_page(image_path, output_path, api_key=None):
     img.save(output_path)
     print(f"\n✅ Saved translated comic to: {output_path}")
     
-    # Save translation data
+    # Save translation data with context
     translation_data = {
         'bubbles': [
             {
@@ -307,13 +353,19 @@ def process_comic_page(image_path, output_path, api_key=None):
                 'translated': b['translated_text']
             }
             for b in bubble_data
-        ]
+        ],
+        'context': context_manager.get_full_context()
     }
     
     json_path = output_path.replace('.png', '_translations.json')
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(translation_data, f, ensure_ascii=False, indent=2)
     print(f"📝 Saved translation data to: {json_path}")
+    
+    # Save context separately for reuse
+    context_path = output_path.replace('.png', '_context.json')
+    context_manager.save_context(context_path)
+    print(f"📚 Saved translation context to: {context_path}")
 
 if __name__ == "__main__":
     # Process the comic page

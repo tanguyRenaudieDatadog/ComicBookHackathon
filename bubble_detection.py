@@ -181,11 +181,10 @@ def draw_white_ellipses_on_boxes(image_path, box_data, output_path=None, debug=T
         center_y = y + height / 2
         
         # Increase padding and adjust for potential compression
-        padding_factor = 1.2  # Increased padding
-        height_compensation = 1.3  # Extra compensation for vertical compression
+        padding_factor = 0.98  # Increased padding
         
         semi_major = (width / 2) * padding_factor
-        semi_minor = (height / 2) * padding_factor * height_compensation
+        semi_minor = (height / 2) * padding_factor
         
         # Calculate bounding box for the ellipse
         left = center_x - semi_major

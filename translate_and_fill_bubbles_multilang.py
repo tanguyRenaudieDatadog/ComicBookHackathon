@@ -4,8 +4,9 @@ Supports translation between any language pairs
 """
 
 import os
-import json
+import time
 import base64
+import asyncio
 from typing import List, Dict, Tuple
 from PIL import Image, ImageDraw, ImageFont
 import cv2
@@ -14,7 +15,11 @@ from ultralytics import YOLO
 from llama_api_client import LlamaAPIClient
 from dotenv import load_dotenv
 import textwrap
-
+from translation_context import TranslationContext
+import logging
+from httpx import AsyncClient
+import httpx
+logger = logging.getLogger('comic_translator')
 # Load environment variables
 load_dotenv()
 
@@ -120,16 +125,92 @@ def extract_text_from_bubble(client, bubble_image_path, bubble_info):
             os.remove(bubble_image_path)
         return "ERROR"
 
-def translate_text(client, text, source_lang="English", target_lang="Russian", debug=False):
-    """Translate text using Llama"""
+
+async def extract_text_from_bubble_async(client: httpx.AsyncClient,bubble_image:os.PathLike,bubble:dict):
+    base64_image = encode_image(bubble_image)
+    
+    prompt = """Extract ONLY the text content from this speech bubble. 
+    Return just the text, nothing else. If there's no text, return 'EMPTY'.
+    Do not include any explanations or additional information."""
+    model="Llama-4-Maverick-17B-128E-Instruct-FP8"
+
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant that provides concise answers."
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": prompt,
+                },
+            ]
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}"
+                    }
+                }
+            ]
+        }
+    ]
+
+    try:
+        response = await client.post(
+        "https://api.llama.com/v1/chat/completions",
+            json={
+            "model": model,
+            "messages": messages,
+            },
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {os.environ.get('LLAMA_API_KEY')}"
+            },
+        )
+        #response {'id': 'AGw3BSWR5lAMmBvigyOuqep', 'completion_message': {'role': 'assistant', 'stop_reason': 'stop', 'content': {'type': 'text', 'text': 'HE HAS A PROPOSAL FOR YOU.'}}, 'metrics': [{'metric': 'num_completion_tokens', 'value': 10, 'unit': 'tokens'}, {'metric': 'num_prompt_tokens', 'value': 72, 'unit': 'tokens'}, {'metric': 'num_total_tokens', 'value': 82, 'unit': 'tokens'}]}
+        print("response",response.json())
+        extracted_text = response.json()['completion_message']['content']['text']
+        # Clean up temporary file
+        os.remove(bubble_image)
+        
+        return extracted_text
+    except Exception as e:
+        print(f"Error extracting text from bubble {bubble['bubble_id']}: {e}")
+        if os.path.exists(bubble_image):
+            os.remove(bubble_image)
+        return "ERROR"
+
+
+def translate_text(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian"):
+    """Translate text using Llama with context awareness"""
     if text in ["EMPTY", "ERROR"]:
         return text
     
-    prompt = f"""Translate the following {source_lang} text to {target_lang}.
-Return ONLY the translated text, nothing else.
-Keep the translation natural and appropriate for comic book dialogue.
+    # Build context-aware prompt
+    prompt_parts = []
+    
+    # Add context if available
+    if context_manager:
+        context_prompt = context_manager.get_context_prompt(max_previous_bubbles=8)
+        if context_prompt:
+            prompt_parts.append("You are translating a comic book. Here's the context so far:")
+            prompt_parts.append(context_prompt)
+            prompt_parts.append("\n" + "="*50 + "\n")
+    
+    prompt_parts.append(f"""Now translate the following {source_lang} text to {target_lang}.
+    Consider the context and maintain consistency with character names and tone.
+    Return ONLY the translated text, nothing else.
+    Keep the translation natural and appropriate for comic book dialogue.
 
-Text to translate: {text}"""
+    Text to translate: {text}""")
+    
+    prompt = "\n".join(prompt_parts)
     
     try:
         response = client.chat.completions.create(
@@ -249,10 +330,10 @@ def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font
     draw.text((x + 5, y + 5), text[:20] + "...", font=font, fill='black')
     return False
 
-def process_comic_page_with_languages(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian", debug=False):
+async def process_comic_page_with_languages(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian"):
     """Main function to process a comic page with multi-language support"""
     # Initialize Llama client
-    client = LlamaAPIClient(
+    client_llama = LlamaAPIClient(
         api_key=api_key or os.environ.get("LLAMA_API_KEY")
     )
     
@@ -268,24 +349,33 @@ def process_comic_page_with_languages(image_path, output_path, api_key=None, sou
     # Sort bubbles by position (top to bottom, left to right)
     bubble_data.sort(key=lambda b: (b['y'], b['x']))
     
-    # Extract text from each bubble
-    print(f"\n📖 Extracting text from bubbles...")
-    for bubble in bubble_data:
-        # Crop bubble region
-        bubble_image = crop_bubble_region(image_path, bubble)
-        
-        # Extract text
-        bubble['original_text'] = extract_text_from_bubble(client, bubble_image, bubble)
-        if debug:
-            print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
+    # Extract text from each bubble using async approach
+    print(f"\n📖 Extracting text from bubbles asynchronously...")
+    client = AsyncClient()
+    t0_extract = time.time()
+    tasks = []
     
-    # Translate texts
+    for bubble in bubble_data:
+        bubble_image = crop_bubble_region(image_path, bubble)
+        tasks.append(extract_text_from_bubble_async(client, bubble_image, bubble))
+    
+    results = await asyncio.gather(*tasks)
+    tf_extract = time.time()
+    logger.info(f"Time taken to extract text from bubbles: {tf_extract - t0_extract} seconds")
+    
+    for i, bubble in enumerate(bubble_data):
+        bubble['original_text'] = results[i]
+        print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
+    
+    await client.aclose()
+    
+    # Translate texts with accumulating context
     print(f"\n🌐 Translating from {source_lang} to {target_lang}...")
     
     for bubble in bubble_data:
         if bubble['original_text'] not in ["EMPTY", "ERROR"]:
             bubble['translated_text'] = translate_text(
-                client, 
+                client_llama, 
                 bubble['original_text'],
                 source_lang=source_lang,
                 target_lang=target_lang,

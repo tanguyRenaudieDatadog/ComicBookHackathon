@@ -6,7 +6,9 @@ independently without context management.
 """
 
 import os
-from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
+import asyncio
+from translation_context import TranslationContext
+from translate_and_fill_bubbles import process_comic_page
 from dotenv import load_dotenv
 
 def translate_comic_series(page_files, output_prefix="translated_page", debug=False, source_lang="English", target_lang="Russian"):
@@ -41,8 +43,10 @@ def translate_comic_series(page_files, output_prefix="translated_page", debug=Fa
         # Process current page
         output_file = f"{output_prefix}_{page_num}.png"
         
-        # Use the multilang version
-        process_comic_page_with_languages(page_file, output_file, api_key, source_lang, target_lang, debug)
+        # Use the multilang version of process_comic_page
+        from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
+        # add timer here 
+        asyncio.run(process_comic_page_with_languages(page_file, output_file, api_key, source_lang, target_lang))
         
         if debug:
             print(f"\n✅ Completed Page {page_num}")

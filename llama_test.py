@@ -42,7 +42,7 @@ response = client.chat.completions.create(
             "content": [
                 {
                     "type": "text",
-                    "text": "extract the all the text bubbles from the image and translate them into italian, and return the text in a json format with the following fields: text, x, y, width, height. x and y are the coordinates of the top left corner of the text bubble, width and height are the width and height of the text bubble.",
+                    "text": "this is a page from a manga, tell me what is happening in the image",
                 },
                 {
                     "type": "image_url",

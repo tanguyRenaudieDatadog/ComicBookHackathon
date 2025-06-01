@@ -1,68 +1,158 @@
 'use client';
 
-import { motion } from "framer-motion";
-import { Upload, Languages, BookOpen, Download } from "lucide-react";
-
-const steps = [
-  {
-    name: "Upload Your Comic",
-    description: "Upload your comic or manga in PDF format. We support most common comic formats.",
-    icon: Upload,
-  },
-  {
-    name: "Choose Language",
-    description: "Select your target language from our extensive list of supported languages.",
-    icon: Languages,
-  },
-  {
-    name: "Read Instantly",
-    description: "Start reading your translated comic immediately as pages are processed.",
-    icon: BookOpen,
-  },
-  {
-    name: "Download & Share",
-    description: "Download your translated comic or share it directly with friends.",
-    icon: Download,
-  },
-];
+import { motion } from 'framer-motion';
+import { BookOpen, Sparkles, ArrowRight } from 'lucide-react';
 
 export function HowItWorks() {
+  const showcaseExamples = [
+    {
+      image: 'comicbook.webp',
+      category: 'Asian Literature',
+      title: 'Japanese Manga',
+      subtitle: 'Traditional storytelling with cultural depth',
+      highlights: [
+        { icon: '📖', text: 'Right-to-left reading flow' },
+        { icon: '🗾', text: 'Cultural expressions & honorifics' },
+        { icon: '🎭', text: 'Authentic character voices' }
+      ],
+      badge: '🎌 Authentic'
+    },
+    {
+      image: 'comicbook2.webp',
+      category: 'Western Comics',
+      title: 'US Superhero Comics',
+      subtitle: 'High-energy action and heroic narratives',
+      highlights: [
+        { icon: '💥', text: 'Dynamic action sequences' },
+        { icon: '🦸', text: 'Hero dialogue & monologues' },
+        { icon: '⚡', text: 'Explosive sound effects' }
+      ],
+      badge: '💥 Dynamic'
+    },
+    {
+      image: 'comicbook3.jpg',
+      category: 'Educational Content',
+      title: 'Technical Manuals',
+      subtitle: 'Precise instructions and professional guides',
+      highlights: [
+        { icon: '📋', text: 'Step-by-step instructions' },
+        { icon: '🔧', text: 'Technical terminology' },
+        { icon: '📊', text: 'Professional documentation' }
+      ],
+      badge: '🔧 Precise'
+    }
+  ];
+
   return (
-    <div id="how-it-works" className="bg-background py-24 sm:py-32">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="text-base font-semibold leading-7 text-primary">Simple Process</h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            How It Works
+    <>
+      {/* Comic Showcase */}
+      <section id="showcase" className="showcase">
+        <div className="container">
+          <h2 className="section-title">
+            <BookOpen className="title-icon" />
+            Translation Examples
+          </h2>
+          <p className="section-subtitle showcase-subtitle">
+            See how our AI transforms different types of content while preserving their unique characteristics
           </p>
-          <p className="mt-6 text-lg leading-8 text-muted-foreground">
-            Translate your comics in just a few simple steps. Our AI handles the complex parts while you enjoy the results.
-          </p>
-        </div>
-        <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-          <div className="grid grid-cols-1 gap-y-8 gap-x-6 sm:grid-cols-2 lg:grid-cols-4">
-            {steps.map((step, index) => (
+          
+          <div className="comics-showcase">
+            {showcaseExamples.map((example, index) => (
               <motion.div
-                key={step.name}
-                className="relative pl-9"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                key={index}
+                className="showcase-card-new"
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: index * 0.2 }}
+                whileHover={{ scale: 1.02 }}
               >
-                <div className="absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                  <step.icon className="h-5 w-5 text-primary" aria-hidden="true" />
+                <div className="showcase-image-container">
+                  <img src={`/${example.image}`} alt={`${example.title} Example`} />
+                  <div className="showcase-overlay-new">
+                    <div className="showcase-content-new">
+                      
+                      {/* Header Section */}
+                      <div className="showcase-header-new">
+                        <span className="showcase-category-new">{example.category}</span>
+                        <h3 className="showcase-title-new">{example.title}</h3>
+                        <p className="showcase-subtitle-new">{example.subtitle}</p>
+                      </div>
+
+                      {/* Highlights Section */}
+                      <div className="showcase-highlights">
+                        {example.highlights.map((highlight, idx) => (
+                          <div key={idx} className="highlight-item">
+                            <span className="highlight-icon">{highlight.icon}</span>
+                            <span className="highlight-text">{highlight.text}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Badge */}
+                      <div className="showcase-badge-new">
+                        <span>{example.badge}</span>
+                      </div>
+
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold leading-8 text-foreground">
-                  {step.name}
-                </h3>
-                <p className="mt-2 text-base leading-7 text-muted-foreground">
-                  {step.description}
-                </p>
               </motion.div>
             ))}
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="footer">
+        <div className="container">
+          <div className="footer-grid">
+            {/* Main CTA Section */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 0.8 }}
+              className="footer-main"
+            >
+              <h3>Ready to Explore Stories in Any Language?</h3>
+              <p>Join thousands of readers discovering amazing comics and manga from around the world!</p>
+              <motion.button
+                className="cta-button footer-cta"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.location.href = 'http://localhost:8080'}
+              >
+                Get Started Now <ArrowRight className="button-icon" />
+              </motion.button>
+            </motion.div>
+
+            {/* Stats Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="footer-stats"
+            >
+              <div className="footer-stat">
+                <span className="stat-number">1000+</span>
+                <span className="stat-label">Comics Translated</span>
+              </div>
+              <div className="footer-stat">
+                <span className="stat-number">50K+</span>
+                <span className="stat-label">Happy Readers</span>
+              </div>
+              <div className="footer-stat">
+                <span className="stat-number">12+</span>
+                <span className="stat-label">Languages</span>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Footer Bottom */}
+          <div className="footer-bottom">
+            <p>&copy; 2024 Comic Translation Revolution. Breaking barriers, connecting worlds.</p>
+          </div>
+        </div>
+      </footer>
+    </>
   );
 } 

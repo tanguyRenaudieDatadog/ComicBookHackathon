@@ -1,0 +1,192 @@
+2025-06-01 10:06:39,924 [INFO] comic_translator: Application folders initialized successfully
+2025-06-01 10:06:39,925 [INFO] comic_translator: 🚀 Starting Comic Translator Flask Application
+2025-06-01 10:06:39,925 [INFO] comic_translator: Server will be available at http://localhost:8080
+2025-06-01 10:06:39,925 [INFO] comic_translator: Upload folder: uploads
+2025-06-01 10:06:39,925 [INFO] comic_translator: Output folder: outputs
+2025-06-01 10:06:40,785 [INFO] comic_translator: Application folders initialized successfully
+2025-06-01 10:06:40,785 [INFO] comic_translator: 🚀 Starting Comic Translator Flask Application
+2025-06-01 10:06:40,785 [INFO] comic_translator: Server will be available at http://localhost:8080
+2025-06-01 10:06:40,785 [INFO] comic_translator: Upload folder: uploads
+2025-06-01 10:06:40,785 [INFO] comic_translator: Output folder: outputs
+2025-06-01 10:06:58,632 [INFO] comic_translator: File uploaded successfully: tets.pdf (Job ID: 5e8c8a51-5af2-4f27-a856-9d90d372b36b)
+2025-06-01 10:06:58,632 [INFO] comic_translator: 🚀 LAUNCHING TRANSLATION TASK - Job ID: 5e8c8a51-5af2-4f27-a856-9d90d372b36b, File: tets.pdf, Source: English, Target: Spanish, Type: PDF
+2025-06-01 10:06:58,633 [INFO] comic_translator: Starting translation processing for job 5e8c8a51-5af2-4f27-a856-9d90d372b36b
+2025-06-01 10:06:58,633 [INFO] comic_translator: Translation thread started for job 5e8c8a51-5af2-4f27-a856-9d90d372b36b
+2025-06-01 10:06:58,633 [INFO] comic_translator: Job 5e8c8a51-5af2-4f27-a856-9d90d372b36b: Processing PDF file
+2025-06-01 10:06:58,633 [INFO] comic_translator: Job 5e8c8a51-5af2-4f27-a856-9d90d372b36b: Starting PDF translation with output prefix: outputs/translated_5e8c8a51-5af2-4f27-a856-9d90d372b36b
+2025-06-01 10:06:59,142 [INFO] comic_translator: 📍 Detecting speech bubbles...
+2025-06-01 10:07:00,956 [INFO] comic_translator: 📖 Extracting text from bubbles asynchronously...
+2025-06-01 10:07:01,934 [INFO] comic_translator: Time taken to extract text from bubbles: 0.96 seconds
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 4: ERROR
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 3: ERROR
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 7: ERROR
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 6: ERROR
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 2: ERROR
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 1: ERROR
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 5: ERROR
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 8: ERROR
+2025-06-01 10:07:01,935 [INFO] comic_translator: 🌐 Translating from English to Spanish...
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 4 is empty or error. Skipping translation.
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 3 is empty or error. Skipping translation.
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 7 is empty or error. Skipping translation.
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 6 is empty or error. Skipping translation.
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 2 is empty or error. Skipping translation.
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 1 is empty or error. Skipping translation.
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 5 is empty or error. Skipping translation.
+2025-06-01 10:07:01,935 [INFO] comic_translator: Bubble 8 is empty or error. Skipping translation.
+2025-06-01 10:07:01,935 [INFO] comic_translator: Time taken to translate 0 bubbles: 0.00 seconds
+2025-06-01 10:07:01,935 [INFO] comic_translator: 🎨 Creating output image...
+2025-06-01 10:07:03,389 [INFO] comic_translator: ✅ Saved translated comic to: outputs/translated_5e8c8a51-5af2-4f27-a856-9d90d372b36b_1.png
+2025-06-01 10:07:03,389 [INFO] comic_translator: 📊 Translation complete: 0/8 bubbles processed
+2025-06-01 10:07:03,397 [INFO] comic_translator: Job 5e8c8a51-5af2-4f27-a856-9d90d372b36b: PDF translation completed, 1 pages processed
+2025-06-01 10:07:03,397 [INFO] comic_translator: Job 5e8c8a51-5af2-4f27-a856-9d90d372b36b: Combining images into PDF: outputs/translated_5e8c8a51-5af2-4f27-a856-9d90d372b36b.pdf
+2025-06-01 10:07:04,267 [INFO] comic_translator: Job 5e8c8a51-5af2-4f27-a856-9d90d372b36b: PDF successfully created at outputs/translated_5e8c8a51-5af2-4f27-a856-9d90d372b36b.pdf
+2025-06-01 10:07:04,267 [INFO] comic_translator: ✅ TRANSLATION COMPLETED - Job ID: 5e8c8a51-5af2-4f27-a856-9d90d372b36b, Source: English, Target: Spanish
+2025-06-01 10:07:04,660 [INFO] comic_translator: 📥 PDF download initiated for job 5e8c8a51-5af2-4f27-a856-9d90d372b36b: outputs/translated_5e8c8a51-5af2-4f27-a856-9d90d372b36b.pdf
+2025-06-01 10:08:24,436 [INFO] comic_translator: Application folders initialized successfully
+2025-06-01 10:08:24,437 [INFO] comic_translator: 🚀 Starting Comic Translator Flask Application
+2025-06-01 10:08:24,437 [INFO] comic_translator: Server will be available at http://localhost:8080
+2025-06-01 10:08:24,437 [INFO] comic_translator: Upload folder: uploads
+2025-06-01 10:08:24,437 [INFO] comic_translator: Output folder: outputs
+2025-06-01 10:08:49,133 [INFO] comic_translator: Application folders initialized successfully
+2025-06-01 10:08:49,133 [INFO] comic_translator: 🚀 Starting Comic Translator Flask Application
+2025-06-01 10:08:49,133 [INFO] comic_translator: Server will be available at http://localhost:8080
+2025-06-01 10:08:49,133 [INFO] comic_translator: Upload folder: uploads
+2025-06-01 10:08:49,134 [INFO] comic_translator: Output folder: outputs
+2025-06-01 10:12:21,856 [INFO] comic_translator: Application folders initialized successfully
+2025-06-01 10:12:21,857 [INFO] comic_translator: 🚀 Starting Comic Translator Flask Application
+2025-06-01 10:12:21,857 [INFO] comic_translator: Server will be available at http://localhost:8080
+2025-06-01 10:12:21,857 [INFO] comic_translator: Upload folder: uploads
+2025-06-01 10:12:21,857 [INFO] comic_translator: Output folder: outputs
+2025-06-01 10:12:40,759 [INFO] comic_translator: Application folders initialized successfully
+2025-06-01 10:12:40,760 [INFO] comic_translator: 🚀 Starting Comic Translator Flask Application
+2025-06-01 10:12:40,760 [INFO] comic_translator: Server will be available at http://localhost:8080
+2025-06-01 10:12:40,760 [INFO] comic_translator: Upload folder: uploads
+2025-06-01 10:12:40,760 [INFO] comic_translator: Output folder: outputs
+2025-06-01 10:13:01,649 [INFO] comic_translator: File uploaded successfully: tets.pdf (Job ID: 6b467c50-5a79-47d6-bc29-d92d42996e84)
+2025-06-01 10:13:01,649 [INFO] comic_translator: 🚀 LAUNCHING TRANSLATION TASK - Job ID: 6b467c50-5a79-47d6-bc29-d92d42996e84, File: tets.pdf, Source: English, Target: Spanish, Type: PDF
+2025-06-01 10:13:01,649 [INFO] comic_translator: Starting translation processing for job 6b467c50-5a79-47d6-bc29-d92d42996e84
+2025-06-01 10:13:01,649 [INFO] comic_translator: Translation thread started for job 6b467c50-5a79-47d6-bc29-d92d42996e84
+2025-06-01 10:13:01,649 [INFO] comic_translator: Job 6b467c50-5a79-47d6-bc29-d92d42996e84: Processing PDF file
+2025-06-01 10:13:01,650 [INFO] comic_translator: Job 6b467c50-5a79-47d6-bc29-d92d42996e84: Starting PDF translation with output prefix: outputs/translated_6b467c50-5a79-47d6-bc29-d92d42996e84
+2025-06-01 10:13:02,136 [INFO] comic_translator: 📍 Detecting speech bubbles...
+2025-06-01 10:13:03,201 [INFO] comic_translator: 📖 Extracting text from bubbles asynchronously...
+2025-06-01 10:13:04,203 [INFO] comic_translator: Time taken to extract text from bubbles: 0.99 seconds
+2025-06-01 10:13:04,203 [INFO] comic_translator: Bubble 4: ERROR
+2025-06-01 10:13:04,203 [INFO] comic_translator: Bubble 3: ERROR
+2025-06-01 10:13:04,203 [INFO] comic_translator: Bubble 7: ERROR
+2025-06-01 10:13:04,203 [INFO] comic_translator: Bubble 6: ERROR
+2025-06-01 10:13:04,203 [INFO] comic_translator: Bubble 2: ERROR
+2025-06-01 10:13:04,203 [INFO] comic_translator: Bubble 1: ERROR
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 5: ERROR
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 8: ERROR
+2025-06-01 10:13:04,204 [INFO] comic_translator: 🌐 Translating from English to Spanish...
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 4 is empty or error. Skipping translation.
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 3 is empty or error. Skipping translation.
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 7 is empty or error. Skipping translation.
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 6 is empty or error. Skipping translation.
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 2 is empty or error. Skipping translation.
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 1 is empty or error. Skipping translation.
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 5 is empty or error. Skipping translation.
+2025-06-01 10:13:04,204 [INFO] comic_translator: Bubble 8 is empty or error. Skipping translation.
+2025-06-01 10:13:04,204 [INFO] comic_translator: Time taken to translate 0 bubbles: 0.00 seconds
+2025-06-01 10:13:04,205 [INFO] comic_translator: 🎨 Creating output image...
+2025-06-01 10:13:05,526 [INFO] comic_translator: ✅ Saved translated comic to: outputs/translated_6b467c50-5a79-47d6-bc29-d92d42996e84_1.png
+2025-06-01 10:13:05,526 [INFO] comic_translator: 📊 Translation complete: 0/8 bubbles processed
+2025-06-01 10:13:05,533 [INFO] comic_translator: Job 6b467c50-5a79-47d6-bc29-d92d42996e84: PDF translation completed, 1 pages processed
+2025-06-01 10:13:05,533 [INFO] comic_translator: Job 6b467c50-5a79-47d6-bc29-d92d42996e84: Combining images into PDF: outputs/translated_6b467c50-5a79-47d6-bc29-d92d42996e84.pdf
+2025-06-01 10:13:05,958 [INFO] comic_translator: Job 6b467c50-5a79-47d6-bc29-d92d42996e84: PDF successfully created at outputs/translated_6b467c50-5a79-47d6-bc29-d92d42996e84.pdf
+2025-06-01 10:13:05,958 [INFO] comic_translator: ✅ TRANSLATION COMPLETED - Job ID: 6b467c50-5a79-47d6-bc29-d92d42996e84, Source: English, Target: Spanish
+2025-06-01 10:13:07,684 [INFO] comic_translator: 📥 PDF download initiated for job 6b467c50-5a79-47d6-bc29-d92d42996e84: outputs/translated_6b467c50-5a79-47d6-bc29-d92d42996e84.pdf
+2025-06-01 10:13:58,317 [INFO] comic_translator: File uploaded successfully: tets_1.pdf (Job ID: 337f4404-9926-4dab-82fd-f249615ae5f8)
+2025-06-01 10:13:58,317 [INFO] comic_translator: 🚀 LAUNCHING TRANSLATION TASK - Job ID: 337f4404-9926-4dab-82fd-f249615ae5f8, File: tets_1.pdf, Source: English, Target: Spanish, Type: PDF
+2025-06-01 10:13:58,317 [INFO] comic_translator: Starting translation processing for job 337f4404-9926-4dab-82fd-f249615ae5f8
+2025-06-01 10:13:58,317 [INFO] comic_translator: Translation thread started for job 337f4404-9926-4dab-82fd-f249615ae5f8
+2025-06-01 10:13:58,317 [INFO] comic_translator: Job 337f4404-9926-4dab-82fd-f249615ae5f8: Processing PDF file
+2025-06-01 10:13:58,318 [INFO] comic_translator: Job 337f4404-9926-4dab-82fd-f249615ae5f8: Starting PDF translation with output prefix: outputs/translated_337f4404-9926-4dab-82fd-f249615ae5f8
+2025-06-01 10:14:07,826 [INFO] comic_translator: 📍 Detecting speech bubbles...
+2025-06-01 10:14:10,190 [INFO] comic_translator: 📖 Extracting text from bubbles asynchronously...
+2025-06-01 10:14:29,265 [INFO] comic_translator: Time taken to extract text from bubbles: 19.07 seconds
+2025-06-01 10:14:29,266 [INFO] comic_translator: Bubble 4: ERROR
+2025-06-01 10:14:29,266 [INFO] comic_translator: Bubble 3: ERROR
+2025-06-01 10:14:29,266 [INFO] comic_translator: Bubble 7: ERROR
+2025-06-01 10:14:29,266 [INFO] comic_translator: Bubble 5: ERROR
+2025-06-01 10:14:29,266 [INFO] comic_translator: Bubble 2: ERROR
+2025-06-01 10:14:29,266 [INFO] comic_translator: Bubble 1: ERROR
+2025-06-01 10:14:29,266 [INFO] comic_translator: Bubble 6: ERROR
+2025-06-01 10:14:29,266 [INFO] comic_translator: Bubble 8: ERROR
+2025-06-01 10:14:29,267 [INFO] comic_translator: 🌐 Translating from English to Spanish...
+2025-06-01 10:14:29,267 [INFO] comic_translator: Bubble 4 is empty or error. Skipping translation.
+2025-06-01 10:14:29,267 [INFO] comic_translator: Bubble 3 is empty or error. Skipping translation.
+2025-06-01 10:14:29,267 [INFO] comic_translator: Bubble 7 is empty or error. Skipping translation.
+2025-06-01 10:14:29,267 [INFO] comic_translator: Bubble 5 is empty or error. Skipping translation.
+2025-06-01 10:14:29,267 [INFO] comic_translator: Bubble 2 is empty or error. Skipping translation.
+2025-06-01 10:14:29,267 [INFO] comic_translator: Bubble 1 is empty or error. Skipping translation.
+2025-06-01 10:14:29,267 [INFO] comic_translator: Bubble 6 is empty or error. Skipping translation.
+2025-06-01 10:14:29,267 [INFO] comic_translator: Bubble 8 is empty or error. Skipping translation.
+2025-06-01 10:14:29,268 [INFO] comic_translator: Time taken to translate 0 bubbles: 0.00 seconds
+2025-06-01 10:14:29,268 [INFO] comic_translator: 🎨 Creating output image...
+2025-06-01 10:14:29,270 [ERROR] comic_translator: Job 337f4404-9926-4dab-82fd-f249615ae5f8: Failed to translate PDF - no output files generated
+2025-06-01 10:14:29,270 [ERROR] comic_translator: ❌ TRANSLATION FAILED - Job ID: 337f4404-9926-4dab-82fd-f249615ae5f8, Error: Failed to translate PDF
+2025-06-01 10:24:41,265 [INFO] comic_translator: File uploaded successfully: tetsts.pdf (Job ID: 437c9b38-80c7-4929-8943-3f9a8ffc0623)
+2025-06-01 10:24:41,265 [INFO] comic_translator: 🚀 LAUNCHING TRANSLATION TASK - Job ID: 437c9b38-80c7-4929-8943-3f9a8ffc0623, File: tetsts.pdf, Source: English, Target: Russian, Type: PDF
+2025-06-01 10:24:41,265 [INFO] comic_translator: Starting translation processing for job 437c9b38-80c7-4929-8943-3f9a8ffc0623
+2025-06-01 10:24:41,265 [INFO] comic_translator: Translation thread started for job 437c9b38-80c7-4929-8943-3f9a8ffc0623
+2025-06-01 10:24:41,266 [INFO] comic_translator: Job 437c9b38-80c7-4929-8943-3f9a8ffc0623: Processing PDF file
+2025-06-01 10:24:41,266 [INFO] comic_translator: Job 437c9b38-80c7-4929-8943-3f9a8ffc0623: Starting PDF translation with output prefix: outputs/translated_437c9b38-80c7-4929-8943-3f9a8ffc0623
+2025-06-01 10:24:42,074 [INFO] comic_translator: 📍 Detecting speech bubbles...
+2025-06-01 10:24:42,439 [INFO] comic_translator: 📖 Extracting text from bubbles asynchronously...
+2025-06-01 10:24:43,107 [INFO] comic_translator: Time taken to extract text from bubbles: 0.66 seconds
+2025-06-01 10:24:43,107 [INFO] comic_translator: Bubble 1: ERROR
+2025-06-01 10:24:43,107 [INFO] comic_translator: Bubble 2: ERROR
+2025-06-01 10:24:43,107 [INFO] comic_translator: Bubble 3: ERROR
+2025-06-01 10:24:43,107 [INFO] comic_translator: Bubble 4: ERROR
+2025-06-01 10:24:43,107 [INFO] comic_translator: Bubble 5: ERROR
+2025-06-01 10:24:43,107 [INFO] comic_translator: 🌐 Translating from English to Russian...
+2025-06-01 10:24:43,107 [INFO] comic_translator: Bubble 1 is empty or error. Skipping translation.
+2025-06-01 10:24:43,108 [INFO] comic_translator: Bubble 2 is empty or error. Skipping translation.
+2025-06-01 10:24:43,108 [INFO] comic_translator: Bubble 3 is empty or error. Skipping translation.
+2025-06-01 10:24:43,108 [INFO] comic_translator: Bubble 4 is empty or error. Skipping translation.
+2025-06-01 10:24:43,108 [INFO] comic_translator: Bubble 5 is empty or error. Skipping translation.
+2025-06-01 10:24:43,108 [INFO] comic_translator: Time taken to translate 0 bubbles: 0.00 seconds
+2025-06-01 10:24:43,108 [INFO] comic_translator: 🎨 Creating output image...
+2025-06-01 10:24:44,824 [INFO] comic_translator: ✅ Saved translated comic to: outputs/translated_437c9b38-80c7-4929-8943-3f9a8ffc0623_1.png
+2025-06-01 10:24:44,825 [INFO] comic_translator: 📊 Translation complete: 0/5 bubbles processed
+2025-06-01 10:24:44,827 [INFO] comic_translator: Job 437c9b38-80c7-4929-8943-3f9a8ffc0623: PDF translation completed, 1 pages processed
+2025-06-01 10:24:44,827 [INFO] comic_translator: Job 437c9b38-80c7-4929-8943-3f9a8ffc0623: Combining images into PDF: outputs/translated_437c9b38-80c7-4929-8943-3f9a8ffc0623.pdf
+2025-06-01 10:24:45,093 [INFO] comic_translator: Job 437c9b38-80c7-4929-8943-3f9a8ffc0623: PDF successfully created at outputs/translated_437c9b38-80c7-4929-8943-3f9a8ffc0623.pdf
+2025-06-01 10:24:45,093 [INFO] comic_translator: ✅ TRANSLATION COMPLETED - Job ID: 437c9b38-80c7-4929-8943-3f9a8ffc0623, Source: English, Target: Russian
+2025-06-01 10:24:46,035 [INFO] comic_translator: 📥 File download initiated for job 437c9b38-80c7-4929-8943-3f9a8ffc0623: outputs/translated_437c9b38-80c7-4929-8943-3f9a8ffc0623_1.png
+2025-06-01 10:25:00,237 [INFO] comic_translator: File uploaded successfully: comicbook.png (Job ID: 021672cc-9e18-4e2b-b112-a4447e1e67ad)
+2025-06-01 10:25:00,237 [INFO] comic_translator: 🚀 LAUNCHING TRANSLATION TASK - Job ID: 021672cc-9e18-4e2b-b112-a4447e1e67ad, File: comicbook.png, Source: English, Target: Russian, Type: Image
+2025-06-01 10:25:00,238 [INFO] comic_translator: Starting translation processing for job 021672cc-9e18-4e2b-b112-a4447e1e67ad
+2025-06-01 10:25:00,238 [INFO] comic_translator: Translation thread started for job 021672cc-9e18-4e2b-b112-a4447e1e67ad
+2025-06-01 10:25:00,238 [INFO] comic_translator: Job 021672cc-9e18-4e2b-b112-a4447e1e67ad: Processing image file
+2025-06-01 10:25:00,238 [INFO] comic_translator: Job 021672cc-9e18-4e2b-b112-a4447e1e67ad: Starting image translation, output: outputs/translated_021672cc-9e18-4e2b-b112-a4447e1e67ad.png
+2025-06-01 10:25:00,364 [INFO] comic_translator: 📍 Detecting speech bubbles...
+2025-06-01 10:25:00,684 [INFO] comic_translator: 📖 Extracting text from bubbles asynchronously...
+2025-06-01 10:25:01,128 [INFO] comic_translator: Time taken to extract text from bubbles: 0.44 seconds
+2025-06-01 10:25:01,128 [INFO] comic_translator: Bubble 4: ERROR
+2025-06-01 10:25:01,128 [INFO] comic_translator: Bubble 3: ERROR
+2025-06-01 10:25:01,128 [INFO] comic_translator: Bubble 7: ERROR
+2025-06-01 10:25:01,128 [INFO] comic_translator: Bubble 5: ERROR
+2025-06-01 10:25:01,128 [INFO] comic_translator: Bubble 2: ERROR
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 1: ERROR
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 6: ERROR
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 8: ERROR
+2025-06-01 10:25:01,129 [INFO] comic_translator: 🌐 Translating from English to Russian...
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 4 is empty or error. Skipping translation.
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 3 is empty or error. Skipping translation.
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 7 is empty or error. Skipping translation.
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 5 is empty or error. Skipping translation.
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 2 is empty or error. Skipping translation.
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 1 is empty or error. Skipping translation.
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 6 is empty or error. Skipping translation.
+2025-06-01 10:25:01,129 [INFO] comic_translator: Bubble 8 is empty or error. Skipping translation.
+2025-06-01 10:25:01,129 [INFO] comic_translator: Time taken to translate 0 bubbles: 0.00 seconds
+2025-06-01 10:25:01,129 [INFO] comic_translator: 🎨 Creating output image...
+2025-06-01 10:25:01,579 [INFO] comic_translator: ✅ Saved translated comic to: outputs/translated_021672cc-9e18-4e2b-b112-a4447e1e67ad.png
+2025-06-01 10:25:01,579 [INFO] comic_translator: 📊 Translation complete: 0/8 bubbles processed
+2025-06-01 10:25:01,580 [INFO] comic_translator: Job 021672cc-9e18-4e2b-b112-a4447e1e67ad: Image translation completed at outputs/translated_021672cc-9e18-4e2b-b112-a4447e1e67ad.png
+2025-06-01 10:25:01,580 [INFO] comic_translator: ✅ TRANSLATION COMPLETED - Job ID: 021672cc-9e18-4e2b-b112-a4447e1e67ad, Source: English, Target: Russian
+2025-06-01 10:25:02,249 [INFO] comic_translator: 📥 File download initiated for job 021672cc-9e18-4e2b-b112-a4447e1e67ad: outputs/translated_021672cc-9e18-4e2b-b112-a4447e1e67ad.png

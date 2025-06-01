@@ -9,7 +9,6 @@ from ultralytics import YOLO
 from llama_api_client import LlamaAPIClient
 from dotenv import load_dotenv
 import textwrap
-from translation_context import TranslationContext
 
 # Load environment variables
 load_dotenv()
@@ -121,30 +120,16 @@ def extract_text_from_bubble(client, bubble_image_path, bubble_info, debug=False
             os.remove(bubble_image_path)
         return "ERROR"
 
-def translate_text(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian", debug=False):
-    """Translate text using Llama with context awareness"""
+def translate_text(client, text, source_lang="English", target_lang="Russian", debug=False):
+    """Translate text using Llama"""
     if text in ["EMPTY", "ERROR"]:
         return text
     
-    # Build context-aware prompt
-    prompt_parts = []
-    
-    # Add context if available
-    if context_manager:
-        context_prompt = context_manager.get_context_prompt(max_previous_bubbles=8)
-        if context_prompt:
-            prompt_parts.append("You are translating a comic book. Here's the context so far:")
-            prompt_parts.append(context_prompt)
-            prompt_parts.append("\n" + "="*50 + "\n")
-    
-    prompt_parts.append(f"""Now translate the following {source_lang} text to {target_lang}.
-Consider the context and maintain consistency with character names and tone.
+    prompt = f"""Translate the following {source_lang} text to {target_lang}.
 Return ONLY the translated text, nothing else.
 Keep the translation natural and appropriate for comic book dialogue.
 
-Text to translate: {text}""")
-    
-    prompt = "\n".join(prompt_parts)
+Text to translate: {text}"""
     
     try:
         response = client.chat.completions.create(
@@ -158,61 +143,66 @@ Text to translate: {text}""")
         )
         
         translated = response.completion_message.content.text.strip()
-        
-        # Add to context after successful translation
-        if context_manager and bubble_id:
-            context_manager.add_bubble_to_context(bubble_id, text, translated)
-        
         return translated
     except Exception as e:
         if debug:
             print(f"Error translating text: {e}")
         return text
 
-def draw_text_in_bubble(draw, text, bubble_info, font_path=None, max_font_size=40, debug=False):
+def get_font_for_language(target_lang):
+    """Select appropriate font based on target language"""
+    # Language-specific font mappings
+    font_mappings = {
+        'Japanese': ['/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc', '/System/Library/Fonts/Hiragino Sans GB.ttc'],
+        'Chinese': ['/System/Library/Fonts/PingFang.ttc', '/System/Library/Fonts/STHeiti Light.ttc'],
+        'Korean': ['/System/Library/Fonts/AppleSDGothicNeo.ttc', '/System/Library/Fonts/NanumGothic.ttc'],
+        'Arabic': ['/System/Library/Fonts/GeezaPro.ttc', '/System/Library/Fonts/Baghdad.ttc'],
+        'Hindi': ['/System/Library/Fonts/Kohinoor.ttc', '/System/Library/Fonts/DevanagariMT.ttc'],
+        'Russian': ['/Library/Fonts/Arial Unicode.ttf', '/System/Library/Fonts/Helvetica.ttc']
+    }
+    
+    # Default fonts for other languages
+    default_fonts = [
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/HelveticaNeue.ttc"
+    ]
+    
+    # Get fonts for the target language
+    language_fonts = font_mappings.get(target_lang, [])
+    all_fonts = language_fonts + default_fonts
+    
+    # Find first available font
+    for font_path in all_fonts:
+        if os.path.exists(font_path):
+            return font_path
+    
+    return None
+
+def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font_size=40, debug=False):
     """Draw text inside a bubble, automatically wrapping and sizing to fit"""
     x = bubble_info['x']
     y = bubble_info['y']
     width = bubble_info['width']
     height = bubble_info['height']
     
+    # Get appropriate font for language
+    font_path = get_font_for_language(target_lang)
+    
     # Start with a large font and decrease until text fits
     font_size = max_font_size
     
-    # Try to use a font that supports Cyrillic
-    cyrillic_fonts = [
-        "/Library/Fonts/Arial Unicode.ttf",  # Has full Unicode support including Cyrillic
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/System/Library/Fonts/HelveticaNeue.ttc", 
-        "/System/Library/Fonts/ArialHB.ttc",
-        "/System/Library/Fonts/Times.ttc",
-        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
-    ]
-    
-    # Find first available Cyrillic font
-    font_to_use = None
-    for font_candidate in cyrillic_fonts:
-        if os.path.exists(font_candidate):
-            font_to_use = font_candidate
-            if debug:
-                print(f"Using font: {font_candidate}")
-            break
-    
-    if not font_to_use and font_path and os.path.exists(font_path):
-        font_to_use = font_path
-    
     while font_size > 8:
         try:
-            if font_to_use:
-                font = ImageFont.truetype(font_to_use, font_size)
-            else:
-                # Fallback to default, but warn user
+            if font_path:
+                font = ImageFont.truetype(font_path, font_size)
                 if debug:
-                    print("⚠️ Warning: No Cyrillic font found, text may not display correctly!")
+                    print(f"Using font: {font_path} for {target_lang}")
+            else:
                 font = ImageFont.load_default()
-        except Exception as e:
-            if debug:
-                print(f"Error loading font: {e}")
+                if debug:
+                    print(f"⚠️ Warning: No appropriate font found for {target_lang}")
+        except:
             font = ImageFont.load_default()
         
         # Wrap text to fit width
@@ -259,15 +249,12 @@ def draw_text_in_bubble(draw, text, bubble_info, font_path=None, max_font_size=4
     draw.text((x + 5, y + 5), text[:20] + "...", font=font, fill='black')
     return False
 
-def process_comic_page(image_path, output_path, api_key=None, debug=False):
-    """Main function to process a comic page with context-aware translation"""
+def process_comic_page(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian", debug=False):
+    """Main function to process a comic page"""
     # Initialize Llama client
     client = LlamaAPIClient(
         api_key=api_key or os.environ.get("LLAMA_API_KEY")
     )
-    
-    # Initialize context manager
-    context_manager = TranslationContext()
     
     # Load bubble detection model
     bubble_model = load_speech_bubble_model(debug)
@@ -278,7 +265,7 @@ def process_comic_page(image_path, output_path, api_key=None, debug=False):
     print("📍 Detecting speech bubbles...")
     bubble_data = detect_speech_bubbles(bubble_model, image_path, conf_threshold=0.3, debug=debug)
     
-    # Sort bubbles by position (top to bottom, left to right) for better context flow
+    # Sort bubbles by position (top to bottom, left to right)
     bubble_data.sort(key=lambda b: (b['y'], b['x']))
     
     # Extract text from each bubble
@@ -292,37 +279,23 @@ def process_comic_page(image_path, output_path, api_key=None, debug=False):
         if debug:
             print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
     
-    # Translate texts with accumulating context
-    print("🌐 Translating texts to Russian with context awareness...")
-    if debug:
-        print("Context will accumulate as translation progresses for better accuracy.\n")
+    # Translate texts
+    print(f"🌐 Translating texts from {source_lang} to {target_lang}...")
     
-    for i, bubble in enumerate(bubble_data):
+    for bubble in bubble_data:
         if bubble['original_text'] not in ["EMPTY", "ERROR"]:
-            # Show context status
-            if debug:
-                context_size = len(context_manager.context_window)
-                print(f"Translating bubble {bubble['bubble_id']} (with {context_size} previous bubbles as context)")
-            
-            # Translate with context
             bubble['translated_text'] = translate_text(
                 client, 
                 bubble['original_text'],
-                context_manager=context_manager,
-                bubble_id=bubble['bubble_id'],
+                source_lang=source_lang,
+                target_lang=target_lang,
                 debug=debug
             )
             
             if debug:
-                print(f"✓ {bubble['original_text']} → {bubble['translated_text']}\n")
+                print(f"✓ {bubble['original_text']} → {bubble['translated_text']}")
         else:
             bubble['translated_text'] = bubble['original_text']
-    
-    # Generate and print summary
-    summary = context_manager.generate_summary()
-    if summary and debug:
-        print("\n📊 Translation Context Summary:")
-        print(summary)
     
     # Create image with white bubbles
     print("🎨 Creating output image...")
@@ -336,7 +309,7 @@ def process_comic_page(image_path, output_path, api_key=None, debug=False):
             center_x = bubble['center_x']
             center_y = bubble['center_y']
             
-            padding_factor = 0.98  # Match the latest update
+            padding_factor = 0.98
             semi_major = (bubble['width'] / 2) * padding_factor
             semi_minor = (bubble['height'] / 2) * padding_factor
             
@@ -351,13 +324,13 @@ def process_comic_page(image_path, output_path, api_key=None, debug=False):
     # Then, draw translated text
     for bubble in bubble_data:
         if bubble['translated_text'] not in ["EMPTY", "ERROR"]:
-            draw_text_in_bubble(draw, bubble['translated_text'], bubble, debug=debug)
+            draw_text_in_bubble(draw, bubble['translated_text'], bubble, target_lang, debug=debug)
     
     # Save result
     img.save(output_path)
     print(f"✅ Saved translated comic to: {output_path}")
     
-    # Save translation data with context
+    # Save translation data
     translation_data = {
         'bubbles': [
             {
@@ -368,7 +341,8 @@ def process_comic_page(image_path, output_path, api_key=None, debug=False):
             }
             for b in bubble_data
         ],
-        'context': context_manager.get_full_context()
+        'source_language': source_lang,
+        'target_language': target_lang
     }
     
     json_path = output_path.replace('.png', '_translations.json')
@@ -376,12 +350,6 @@ def process_comic_page(image_path, output_path, api_key=None, debug=False):
         json.dump(translation_data, f, ensure_ascii=False, indent=2)
     if debug:
         print(f"📝 Saved translation data to: {json_path}")
-    
-    # Save context separately for reuse
-    context_path = output_path.replace('.png', '_context.json')
-    context_manager.save_context(context_path)
-    if debug:
-        print(f"📚 Saved translation context to: {context_path}")
 
 if __name__ == "__main__":
     import sys

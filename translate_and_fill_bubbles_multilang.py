@@ -1,5 +1,5 @@
 """
-Multi-language version of the comic book translation script
+Multi-language Comic Book Translation
 Supports translation between any language pairs
 """
 
@@ -14,7 +14,6 @@ from ultralytics import YOLO
 from llama_api_client import LlamaAPIClient
 from dotenv import load_dotenv
 import textwrap
-from translation_context import TranslationContext
 
 # Load environment variables
 load_dotenv()
@@ -121,30 +120,16 @@ def extract_text_from_bubble(client, bubble_image_path, bubble_info):
             os.remove(bubble_image_path)
         return "ERROR"
 
-def translate_text(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian"):
-    """Translate text using Llama with context awareness"""
+def translate_text(client, text, source_lang="English", target_lang="Russian", debug=False):
+    """Translate text using Llama"""
     if text in ["EMPTY", "ERROR"]:
         return text
     
-    # Build context-aware prompt
-    prompt_parts = []
-    
-    # Add context if available
-    if context_manager:
-        context_prompt = context_manager.get_context_prompt(max_previous_bubbles=8)
-        if context_prompt:
-            prompt_parts.append("You are translating a comic book. Here's the context so far:")
-            prompt_parts.append(context_prompt)
-            prompt_parts.append("\n" + "="*50 + "\n")
-    
-    prompt_parts.append(f"""Now translate the following {source_lang} text to {target_lang}.
-Consider the context and maintain consistency with character names and tone.
+    prompt = f"""Translate the following {source_lang} text to {target_lang}.
 Return ONLY the translated text, nothing else.
 Keep the translation natural and appropriate for comic book dialogue.
 
-Text to translate: {text}""")
-    
-    prompt = "\n".join(prompt_parts)
+Text to translate: {text}"""
     
     try:
         response = client.chat.completions.create(
@@ -158,14 +143,10 @@ Text to translate: {text}""")
         )
         
         translated = response.completion_message.content.text.strip()
-        
-        # Add to context after successful translation
-        if context_manager and bubble_id:
-            context_manager.add_bubble_to_context(bubble_id, text, translated)
-        
         return translated
     except Exception as e:
-        print(f"Error translating text: {e}")
+        if debug:
+            print(f"Error translating text: {e}")
         return text
 
 def get_font_for_language(target_lang):
@@ -198,7 +179,7 @@ def get_font_for_language(target_lang):
     
     return None
 
-def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font_size=40):
+def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font_size=40, debug=False):
     """Draw text inside a bubble, automatically wrapping and sizing to fit"""
     x = bubble_info['x']
     y = bubble_info['y']
@@ -215,10 +196,12 @@ def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font
         try:
             if font_path:
                 font = ImageFont.truetype(font_path, font_size)
-                print(f"Using font: {font_path} for {target_lang}")
+                if debug:
+                    print(f"Using font: {font_path} for {target_lang}")
             else:
                 font = ImageFont.load_default()
-                print(f"⚠️ Warning: No appropriate font found for {target_lang}")
+                if debug:
+                    print(f"⚠️ Warning: No appropriate font found for {target_lang}")
         except:
             font = ImageFont.load_default()
         
@@ -266,15 +249,12 @@ def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font
     draw.text((x + 5, y + 5), text[:20] + "...", font=font, fill='black')
     return False
 
-def process_comic_page_with_languages(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian"):
+def process_comic_page_with_languages(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian", debug=False):
     """Main function to process a comic page with multi-language support"""
     # Initialize Llama client
     client = LlamaAPIClient(
         api_key=api_key or os.environ.get("LLAMA_API_KEY")
     )
-    
-    # Initialize context manager
-    context_manager = TranslationContext()
     
     # Load bubble detection model
     bubble_model = load_speech_bubble_model()
@@ -285,7 +265,7 @@ def process_comic_page_with_languages(image_path, output_path, api_key=None, sou
     print(f"\n📍 Detecting speech bubbles...")
     bubble_data = detect_speech_bubbles(bubble_model, image_path, conf_threshold=0.3)
     
-    # Sort bubbles by position (top to bottom, left to right) for better context flow
+    # Sort bubbles by position (top to bottom, left to right)
     bubble_data.sort(key=lambda b: (b['y'], b['x']))
     
     # Extract text from each bubble
@@ -296,34 +276,31 @@ def process_comic_page_with_languages(image_path, output_path, api_key=None, sou
         
         # Extract text
         bubble['original_text'] = extract_text_from_bubble(client, bubble_image, bubble)
-        print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
+        if debug:
+            print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
     
-    # Translate texts with accumulating context
+    # Translate texts
     print(f"\n🌐 Translating from {source_lang} to {target_lang}...")
-    print("Context will accumulate as translation progresses for better accuracy.\n")
     
-    for i, bubble in enumerate(bubble_data):
+    for bubble in bubble_data:
         if bubble['original_text'] not in ["EMPTY", "ERROR"]:
-            # Show context status
-            context_size = len(context_manager.context_window)
-            print(f"Translating bubble {bubble['bubble_id']} (with {context_size} previous bubbles as context)")
-            
-            # Translate with context
             bubble['translated_text'] = translate_text(
                 client, 
                 bubble['original_text'],
-                context_manager=context_manager,
-                bubble_id=bubble['bubble_id'],
                 source_lang=source_lang,
-                target_lang=target_lang
+                target_lang=target_lang,
+                debug=debug
             )
             
-            print(f"✓ {bubble['original_text']} → {bubble['translated_text']}\n")
+            if debug:
+                print(f"✓ {bubble['original_text']} → {bubble['translated_text']}")
+            else:
+                print(f"Bubble {bubble['bubble_id']}: {bubble['original_text'][:30]}... → {bubble['translated_text'][:30]}...")
         else:
             bubble['translated_text'] = bubble['original_text']
     
     # Create image with white bubbles
-    print("\n🎨 Creating output image...")
+    print(f"\n🎨 Creating output image...")
     img = Image.open(image_path).convert("RGBA")
     draw = ImageDraw.Draw(img)
     
@@ -334,7 +311,7 @@ def process_comic_page_with_languages(image_path, output_path, api_key=None, sou
             center_x = bubble['center_x']
             center_y = bubble['center_y']
             
-            padding_factor = 0.98  # Match the latest update
+            padding_factor = 0.98
             semi_major = (bubble['width'] / 2) * padding_factor
             semi_minor = (bubble['height'] / 2) * padding_factor
             
@@ -349,8 +326,30 @@ def process_comic_page_with_languages(image_path, output_path, api_key=None, sou
     # Then, draw translated text
     for bubble in bubble_data:
         if bubble['translated_text'] not in ["EMPTY", "ERROR"]:
-            draw_text_in_bubble(draw, bubble['translated_text'], bubble, target_lang)
+            draw_text_in_bubble(draw, bubble['translated_text'], bubble, target_lang, debug=debug)
     
     # Save result
     img.save(output_path)
-    print(f"\n✅ Saved translated comic to: {output_path}") 
+    print(f"\n✅ Saved translated comic to: {output_path}")
+
+# Example usage
+if __name__ == "__main__":
+    import sys
+    
+    # Check for debug flag
+    debug_mode = "--debug" in sys.argv
+    if debug_mode:
+        sys.argv.remove("--debug")
+    
+    if len(sys.argv) < 2:
+        print("Usage: python translate_and_fill_bubbles_multilang.py <image_path> [output_path] [--debug]")
+        print("       --debug    Show detailed translation information")
+        sys.exit(1)
+    
+    image_path = sys.argv[1]
+    output_path = sys.argv[2] if len(sys.argv) > 2 else "translated_" + os.path.basename(image_path)
+    
+    if debug_mode:
+        print("🐛 Debug mode enabled - showing detailed translation")
+    
+    process_comic_page_with_languages(image_path, output_path, debug=debug_mode) 

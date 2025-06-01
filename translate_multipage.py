@@ -1,18 +1,17 @@
 """
-Multi-page Comic Translation with Context Preservation
+Multi-page Comic Translation
 
 This script demonstrates how to translate multiple comic pages
-while maintaining context across pages for consistent translations.
+independently without context management.
 """
 
 import os
-from translation_context import TranslationContext
-from translate_and_fill_bubbles import process_comic_page
+from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
 from dotenv import load_dotenv
 
 def translate_comic_series(page_files, output_prefix="translated_page", debug=False, source_lang="English", target_lang="Russian"):
     """
-    Translate a series of comic pages with continuous context
+    Translate a series of comic pages independently
     
     Args:
         page_files: List of input image filenames
@@ -23,14 +22,11 @@ def translate_comic_series(page_files, output_prefix="translated_page", debug=Fa
     """
     # Load environment variables
     load_dotenv()
-    api_key = os.getenv("api_key")
+    api_key = os.getenv("api_key") or os.getenv("LLAMA_API_KEY")
     
     if not api_key:
         print("❌ Error: api_key not found in .env file")
         return
-    
-    # Initialize persistent context
-    context_manager = TranslationContext()
     
     for i, page_file in enumerate(page_files):
         page_num = i + 1
@@ -42,22 +38,11 @@ def translate_comic_series(page_files, output_prefix="translated_page", debug=Fa
         else:
             print(f"\n📖 Processing page {page_num}/{len(page_files)}: {os.path.basename(page_file)}")
         
-        # Check if we have previous context
-        if i > 0:
-            # Load context from previous page
-            prev_context_file = f"{output_prefix}_{i}_context.json"
-            if os.path.exists(prev_context_file):
-                context_manager.load_context(prev_context_file)
-                if debug:
-                    print(f"✓ Loaded context from {len(context_manager.context_window)} previous bubbles")
-                    print(f"✓ Known characters: {', '.join(context_manager.character_names)}")
-        
         # Process current page
         output_file = f"{output_prefix}_{page_num}.png"
         
-        # Use the multilang version of process_comic_page
-        from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
-        process_comic_page_with_languages(page_file, output_file, api_key, source_lang, target_lang)
+        # Use the multilang version
+        process_comic_page_with_languages(page_file, output_file, api_key, source_lang, target_lang, debug)
         
         if debug:
             print(f"\n✅ Completed Page {page_num}")
@@ -65,10 +50,11 @@ def translate_comic_series(page_files, output_prefix="translated_page", debug=Fa
     if debug:
         print(f"\n{'='*60}")
         print("🎉 All pages translated successfully!")
-        print(f"Total context accumulated: {len(context_manager.context_window)} dialogue bubbles")
+        print(f"Processed {len(page_files)} pages")
+        print(f"{'='*60}")
     else:
-        print("\n🎉 All pages translated successfully!")
-
+        print(f"\n🎉 All pages translated successfully!")
+        print(f"Processed {len(page_files)} pages")
 
 # Example usage
 if __name__ == "__main__":
@@ -78,6 +64,18 @@ if __name__ == "__main__":
     debug_mode = "--debug" in sys.argv
     if debug_mode:
         sys.argv.remove("--debug")
+    
+    # Check for languages
+    source_lang = "English"
+    target_lang = "Russian"
+    
+    for arg in sys.argv[1:]:
+        if arg.startswith("--source="):
+            source_lang = arg.split("=")[1]
+            sys.argv.remove(arg)
+        elif arg.startswith("--target="):
+            target_lang = arg.split("=")[1]
+            sys.argv.remove(arg)
     
     # Example for translating multiple pages
     comic_pages = [
@@ -93,11 +91,18 @@ if __name__ == "__main__":
         print(f"Found {len(existing_pages)} pages to translate")
         if debug_mode:
             print("🐛 Debug mode enabled")
-        translate_comic_series(existing_pages, debug=debug_mode)
+        print(f"🌐 Translation: {source_lang} → {target_lang}")
+        translate_comic_series(existing_pages, debug=debug_mode, 
+                              source_lang=source_lang, target_lang=target_lang)
     else:
-        print("ℹ️  This is an example script for multi-page translation.")
-        print("To use it, add your comic page files (page1.png, page2.png, etc.)")
+        print("ℹ️  Multi-page Comic Translation Tool")
+        print("\nUsage:")
+        print("  python translate_multipage.py [--debug] [--source=English] [--target=Russian]")
+        print("\nTo use it, add your comic page files (page1.png, page2.png, etc.)")
         print("\nFor single page translation, use:")
-        print("  python translate_and_fill_bubbles.py [--debug]")
+        print("  python translate_and_fill_bubbles_multilang.py [image_path]")
         print("\nFor debug mode, add --debug flag:")
-        print("  python translate_multipage.py --debug") 
+        print("  python translate_multipage.py --debug")
+        print("\nLanguage options:")
+        print("  --source=English --target=Spanish")
+        print("  --source=Japanese --target=English") 

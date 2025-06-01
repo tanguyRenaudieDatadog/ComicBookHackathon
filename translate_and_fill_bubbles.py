@@ -9,7 +9,7 @@ from ultralytics import YOLO
 from llama_api_client import LlamaAPIClient
 from dotenv import load_dotenv
 import textwrap
-from translation_context import TranslationContext
+from translation_context import MultimodalTranslationContext
 
 # Load environment variables
 load_dotenv()

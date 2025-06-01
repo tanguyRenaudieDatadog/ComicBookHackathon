@@ -519,5 +519,5 @@ if __name__ == "__main__":
     if debug_mode:
         print("🐛 Debug mode enabled - showing detailed translation")
     
-    process_comic_page_with_languages(image_path, output_path, debug=debug_mode) 
+    asyncio.run(process_comic_page_with_languages(image_path, output_path, source_lang="Japanese", target_lang="English", debug=debug_mode)) 
 # %%

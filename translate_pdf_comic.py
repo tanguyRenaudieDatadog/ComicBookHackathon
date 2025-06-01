@@ -75,19 +75,20 @@ def extract_pdf_pages(pdf_path, output_dir="temp_pdf_pages", dpi=300, debug=Fals
 
 def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page", 
                        temp_dir="temp_pdf_pages", dpi=300, cleanup=True, debug=False,
-                       source_lang="English", target_lang="Russian"):
+                       source_lang="English", target_lang="Russian", status_callback=None):
     """
-    Complete pipeline to translate a PDF comic book
+    Translate an entire PDF comic book while preserving context across pages
     
     Args:
-        pdf_path: Path to the PDF comic file
-        output_prefix: Prefix for translated output files
-        temp_dir: Temporary directory for extracted pages
-        dpi: Resolution for page extraction
-        cleanup: Whether to delete temporary files after processing
+        pdf_path: Path to the input PDF file
+        output_prefix: Prefix for output image files (e.g., "translated_pdf_page" -> "translated_pdf_page_1.png")
+        temp_dir: Directory for temporary page files
+        dpi: DPI for page extraction
+        cleanup: Whether to clean up temporary files
         debug: Enable detailed output
         source_lang: Source language name (e.g., "English")
-        target_lang: Target language name (e.g., "Spanish")
+        target_lang: Target language name (e.g., "Russian")
+        status_callback: Optional callback function to report progress (current_page, total_pages, message)
     
     Returns:
         List of translated image file paths
@@ -121,6 +122,9 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
         # Step 1: Extract pages from PDF
         if debug:
             print("📋 Step 1: Extracting pages from PDF...")
+        if status_callback:
+            status_callback(0, 0, "Extracting pages from PDF...")
+            
         page_files = extract_pdf_pages(pdf_path, temp_dir, dpi, debug)
         
         if not page_files:
@@ -133,8 +137,14 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
         
         # Process each page with the multilang version
         translated_files = []
+        total_pages = len(page_files)
+        
         for i, page_file in enumerate(page_files):
-            output_file = f"{output_prefix}_{i + 1}.png"
+            current_page = i + 1
+            if status_callback:
+                status_callback(current_page, total_pages, f"Translating page {current_page} of {total_pages}")
+                
+            output_file = f"{output_prefix}_{current_page}.png"
             asyncio.run(process_comic_page_with_languages(
                 page_file,
                 output_file,
@@ -144,6 +154,9 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
                 debug=debug
             ))
             translated_files.append(output_file)
+            
+            if debug:
+                print(f"✅ Completed page {current_page}/{total_pages}")
         
         if debug:
             print(f"\n{'='*80}")

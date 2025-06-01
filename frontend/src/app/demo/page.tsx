@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
 import { savePDF } from '@/lib/storage';
+import { TranslationProgress } from '@/components/ui/translation-progress';
 
 interface Book {
   id: string;
@@ -62,6 +63,10 @@ function AddBookModal({ open, onOpenChange, onBookAdded }: { open: boolean; onOp
   const [sourceLang, setSourceLang] = useState('en');
   const [targetLang, setTargetLang] = useState('es');
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('Processing...');
 
   useEffect(() => {
     if (!open) {
@@ -71,6 +76,10 @@ function AddBookModal({ open, onOpenChange, onBookAdded }: { open: boolean; onOp
       setTargetLang('es');
       setError(null);
       setLoading(false);
+      setProgress(0);
+      setCurrentPage(0);
+      setTotalPages(0);
+      setStatusMessage('Processing...');
     }
   }, [open]);
 
@@ -106,36 +115,57 @@ function AddBookModal({ open, onOpenChange, onBookAdded }: { open: boolean; onOp
     }
     setLoading(true);
     setError(null);
+    setProgress(0);
+    setStatusMessage('Starting translation...');
+    
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('source_lang', sourceLang);
       formData.append('target_lang', targetLang);
       formData.append('title', title);
+      
       const res = await fetch('/upload', {
         method: 'POST',
         body: formData,
       });
       const data = await res.json();
+      
       if (!res.ok || !data.job_id) {
         setError(data.error || 'Failed to start translation');
         setLoading(false);
         return;
       }
-      // Poll status
+      
+      // Poll status with detailed progress
       let status = 'processing';
       let jobId = data.job_id;
+      const isPdf = file.type === 'application/pdf';
+      
       while (status !== 'completed') {
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 1000)); // Check every second for more responsive updates
         const statusRes = await fetch(`/status/${jobId}`);
         const statusData = await statusRes.json();
+        
         if (statusData.status === 'failed') {
           setError(statusData.error || 'Translation failed');
           setLoading(false);
           return;
         }
+        
+        // Update progress state
+        setProgress(statusData.progress || 0);
+        setCurrentPage(statusData.current_page || 0);
+        setTotalPages(statusData.total_pages || 0);
+        setStatusMessage(statusData.message || 'Processing...');
+        
         status = statusData.status;
       }
+      
+      // Final success state
+      setProgress(100);
+      setStatusMessage('Download starting...');
+      
       // Download PDF
       const pdfRes = await fetch(`/download/all/${jobId}`);
       if (!pdfRes.ok) {
@@ -186,13 +216,14 @@ function AddBookModal({ open, onOpenChange, onBookAdded }: { open: boolean; onOp
       <DialogContent className="max-w-lg p-0 overflow-visible">
         <DialogTitle className="sr-only">Add a Book</DialogTitle>
         {loading ? (
-          <div className="flex flex-col items-center justify-center min-h-[350px] w-full">
-            <Loader2 className="h-12 w-12 text-primary animate-spin mb-6" />
-            <div className="text-lg font-semibold text-foreground mb-2">Translating…</div>
-            <div className="text-muted-foreground text-sm text-center max-w-xs">
-              This may take a minute for large comics. Please do not close this window.
-            </div>
-          </div>
+          <TranslationProgress
+            progress={progress}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            message={statusMessage}
+            isProcessing={true}
+            isPdf={file?.type === 'application/pdf'}
+          />
         ) : (
           <form onSubmit={handleSubmit} className="relative bg-background rounded-xl shadow-xl p-8 pt-6 flex flex-col items-center">
             <div className="flex flex-col items-center w-full">

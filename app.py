@@ -158,9 +158,26 @@ def process_translation(job_id, input_path, source_lang, target_lang):
     """Process the translation job in background"""
     logger.info(f"Starting translation processing for job {job_id}")
     
+    def status_callback(current_page, total_pages, message):
+        """Callback to update job status with page progress"""
+        if total_pages > 0:
+            # Calculate progress based on page completion
+            progress = int((current_page / total_pages) * 80) + 15  # Reserve 15% for setup, 5% for final steps
+        else:
+            progress = 15  # Initial setup progress
+            
+        translation_jobs[job_id].update({
+            'progress': progress,
+            'current_page': current_page,
+            'total_pages': total_pages,
+            'message': message
+        })
+        logger.info(f"Job {job_id}: {message} (Progress: {progress}%)")
+    
     try:
         # Update progress
         translation_jobs[job_id]['progress'] = 10
+        translation_jobs[job_id]['message'] = "Initializing translation..."
         logger.debug(f"Job {job_id}: Progress updated to 10%")
         
         # Get API key
@@ -170,8 +187,9 @@ def process_translation(job_id, input_path, source_lang, target_lang):
             raise Exception("API key not configured")
         
         # Update progress
-        translation_jobs[job_id]['progress'] = 30
-        logger.debug(f"Job {job_id}: Progress updated to 30%")
+        translation_jobs[job_id]['progress'] = 15
+        translation_jobs[job_id]['message'] = "Setting up translation environment..."
+        logger.debug(f"Job {job_id}: Progress updated to 15%")
         
         # Check if this is a PDF
         is_pdf = translation_jobs[job_id]['is_pdf']
@@ -188,7 +206,8 @@ def process_translation(job_id, input_path, source_lang, target_lang):
                 temp_dir=f"temp_{job_id}_pages",
                 debug=False,
                 source_lang=SUPPORTED_LANGUAGES[source_lang],
-                target_lang=SUPPORTED_LANGUAGES[target_lang]
+                target_lang=SUPPORTED_LANGUAGES[target_lang],
+                status_callback=status_callback
             )
             
             if not translated_files:
@@ -196,6 +215,10 @@ def process_translation(job_id, input_path, source_lang, target_lang):
                 raise Exception("Failed to translate PDF")
             
             logger.info(f"Job {job_id}: PDF translation completed, {len(translated_files)} pages processed")
+            
+            # Update progress for final steps
+            translation_jobs[job_id]['progress'] = 95
+            translation_jobs[job_id]['message'] = "Combining pages into final PDF..."
             
             # Combine translated images back into PDF
             output_pdf = os.path.join(app.config['OUTPUT_FOLDER'], f"translated_{job_id}.pdf")
@@ -215,6 +238,9 @@ def process_translation(job_id, input_path, source_lang, target_lang):
             
             logger.info(f"Job {job_id}: Starting image translation, output: {output_path}")
             
+            translation_jobs[job_id]['progress'] = 50
+            translation_jobs[job_id]['message'] = "Translating image..."
+            
             # Process the comic with language parameters
             process_comic_page_multilang(
                 input_path, 
@@ -230,6 +256,7 @@ def process_translation(job_id, input_path, source_lang, target_lang):
         # Update job status
         translation_jobs[job_id]['status'] = 'completed'
         translation_jobs[job_id]['progress'] = 100
+        translation_jobs[job_id]['message'] = "Translation completed successfully!"
         
         logger.info(f"✅ TRANSLATION COMPLETED - Job ID: {job_id}, "
                    f"Source: {SUPPORTED_LANGUAGES[source_lang]}, "
@@ -238,6 +265,7 @@ def process_translation(job_id, input_path, source_lang, target_lang):
     except Exception as e:
         translation_jobs[job_id]['status'] = 'failed'
         translation_jobs[job_id]['error'] = str(e)
+        translation_jobs[job_id]['message'] = f"Translation failed: {str(e)}"
         logger.error(f"❌ TRANSLATION FAILED - Job ID: {job_id}, Error: {str(e)}")
 
 @app.route('/status/<job_id>')
@@ -253,7 +281,10 @@ def get_status(job_id):
         'progress': job['progress'],
         'error': job['error'],
         'is_pdf': job.get('is_pdf', False),
-        'all_pages': job.get('all_pages', [])
+        'all_pages': job.get('all_pages', []),
+        'current_page': job.get('current_page', 0),
+        'total_pages': job.get('total_pages', 0),
+        'message': job.get('message', 'Processing...')
     })
 
 @app.route('/download/<job_id>')

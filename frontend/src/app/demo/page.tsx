@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, BookOpen, Languages, Upload, X, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useDropzone } from 'react-dropzone';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useRouter } from 'next/navigation';
+import { savePDF } from '@/lib/storage';
 
 interface Book {
   id: string;
@@ -53,7 +55,7 @@ const LANGUAGES = [
 const MAX_SIZE_MB = 16;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-function AddBookModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+function AddBookModal({ open, onOpenChange, onBookAdded }: { open: boolean; onOpenChange: (v: boolean) => void; onBookAdded: (book: Book) => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -109,7 +111,6 @@ function AddBookModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
       formData.append('file', file);
       formData.append('source_lang', sourceLang);
       formData.append('target_lang', targetLang);
-      // Optionally send title as well (not used by backend, but for future use)
       formData.append('title', title);
       const res = await fetch('/upload', {
         method: 'POST',
@@ -143,16 +144,37 @@ function AddBookModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
         return;
       }
       const blob = await pdfRes.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title || 'translated_comic'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      setLoading(false);
-      onOpenChange(false);
+      
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64data = reader.result as string;
+        // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
+        const base64 = base64data.split(',')[1];
+        
+        // Save PDF data to IndexedDB
+        await savePDF(jobId, base64);
+        
+        // Add the new book to the library (without PDF data)
+        onBookAdded({
+          id: jobId,
+          title,
+          language: LANGUAGES.find(l => l.code === targetLang)?.name || targetLang,
+        });
+
+        // Download the PDF
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${title || 'translated_comic'}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        setLoading(false);
+        onOpenChange(false);
+      };
     } catch (err) {
       setError('Network or server error.');
       setLoading(false);
@@ -263,6 +285,7 @@ function AddBookModal({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
 export default function DemoPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const router = useRouter();
 
   // Load books from localStorage on mount
   useEffect(() => {
@@ -274,6 +297,11 @@ export default function DemoPage() {
   useEffect(() => {
     localStorage.setItem('demo-books', JSON.stringify(books));
   }, [books]);
+
+  // Handler to add a new book after translation
+  const handleBookAdded = (book: Book) => {
+    setBooks(prev => [...prev, book]);
+  };
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
@@ -292,84 +320,90 @@ export default function DemoPage() {
           ComicTranslator
         </Link>
       </motion.header>
-      <AddBookModal open={modalOpen} onOpenChange={setModalOpen} />
-      <div className="flex-1 flex flex-col items-center justify-center pt-24 pb-12 px-4">
-        {books.length === 0 ? (
-          <>
-            <motion.h1 
-              className="text-4xl sm:text-5xl font-bold text-foreground text-center mb-4"
+      <AddBookModal open={modalOpen} onOpenChange={setModalOpen} onBookAdded={handleBookAdded} />
+      <div className="flex-1 flex flex-col items-center justify-center pt-24 pb-12 px-4 w-full">
+        <AnimatePresence mode="wait">
+          <motion.h1
+            key="welcome-heading"
+            className="text-4xl sm:text-5xl font-bold text-foreground text-center mb-10"
+            initial={{ y: 0, opacity: 1 }}
+            animate={books.length > 0 ? { y: -60, opacity: 1, scale: 0.95 } : { y: 0, opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 100, damping: 15 }}
+            exit={{ opacity: 0 }}
+            style={{ zIndex: 1 }}
+          >
+            Welcome to ComicTranslator
+          </motion.h1>
+        </AnimatePresence>
+        <AnimatePresence>
+          {books.length === 0 && (
+            <motion.div
+              key="welcome-desc"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5 }}
+              className="flex flex-col items-center w-full"
             >
-              Welcome to ComicTranslator
-            </motion.h1>
-            <motion.h2 
-              className="text-2xl font-semibold text-foreground text-center mb-2"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              Create your first book
-            </motion.h2>
-            <motion.p 
-              className="text-lg text-muted-foreground text-center max-w-xl mb-10"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7 }}
-            >
-              ComicTranslator lets you translate and read comics or manga in your chosen language. Get started by adding your first book.
-            </motion.p>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16 w-full max-w-4xl">
-              {features.map((f, i) => (
-                <motion.div
-                  key={f.title}
-                  className="flex-1 bg-card rounded-xl shadow-md p-6 flex flex-col items-center text-center"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 + i * 0.1 }}
-                >
-                  <div className="mb-3">{f.icon}</div>
-                  <div className="font-semibold text-lg mb-1">{f.title}</div>
-                  <div className="text-muted-foreground text-sm">{f.desc}</div>
-                </motion.div>
-              ))}
-            </div>
-            <div className="flex flex-col items-center mt-8">
+              <motion.h2 
+                className="text-2xl font-semibold text-foreground text-center mb-2"
+                initial={false}
+                animate={{ opacity: 1 }}
+              >
+                Create your first book
+              </motion.h2>
+              <motion.p 
+                className="text-lg text-muted-foreground text-center max-w-xl mb-10"
+                initial={false}
+                animate={{ opacity: 1 }}
+              >
+                ComicTranslator lets you translate and read comics or manga in your chosen language. Get started by adding your first book.
+              </motion.p>
+              <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16 w-full max-w-4xl">
+                {features.map((f, i) => (
+                  <motion.div
+                    key={f.title}
+                    className="flex-1 bg-card rounded-xl shadow-md p-6 flex flex-col items-center text-center"
+                    initial={false}
+                    animate={{ opacity: 1 }}
+                  >
+                    <div className="mb-3">{f.icon}</div>
+                    <div className="font-semibold text-lg mb-1">{f.title}</div>
+                    <div className="text-muted-foreground text-sm">{f.desc}</div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {books.length === 0 ? (
+          <div className="flex flex-col items-center mt-8">
+            <Button size="lg" className="flex items-center gap-2 text-base px-6 py-3" onClick={() => setModalOpen(true)}>
+              <Plus className="h-5 w-5" />
+              Add a Book
+            </Button>
+          </div>
+        ) : (
+          <div className="w-full max-w-2xl flex flex-col items-center mt-0">
+            <div className="w-full flex flex-col items-center">
+              <div className="w-full grid grid-cols-1 gap-6 mb-8">
+                {books.map((book) => (
+                  <motion.div
+                    key={book.id}
+                    className="bg-card rounded-lg shadow-md p-6 flex flex-col items-start cursor-pointer hover:shadow-lg transition"
+                    whileHover={{ scale: 1.02 }}
+                    onClick={() => router.push(`/demo/book/${book.id}`)}
+                  >
+                    <div className="font-bold text-lg mb-2">{book.title}</div>
+                    <div className="text-sm text-muted-foreground mb-1">Language: {book.language}</div>
+                    <div className="text-xs text-muted-foreground">Click to view</div>
+                  </motion.div>
+                ))}
+              </div>
               <Button size="lg" className="flex items-center gap-2 text-base px-6 py-3" onClick={() => setModalOpen(true)}>
                 <Plus className="h-5 w-5" />
                 Add a Book
               </Button>
-            </div>
-          </>
-        ) : (
-          <div className="w-full max-w-4xl flex flex-col items-center mt-20">
-            <h1 className="text-3xl font-bold mb-10 mt-2">Your Library</h1>
-            <Button size="lg" className="mb-10 flex items-center gap-2" onClick={() => setModalOpen(true)}>
-              <Plus className="h-5 w-5" />
-              Add a Book
-            </Button>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 w-full">
-              {books.map((book, i) => (
-                <motion.div
-                  key={book.id}
-                  className="bg-card rounded-lg shadow-sm overflow-hidden flex flex-col"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: i * 0.1 }}
-                >
-                  <div className="aspect-[3/4] bg-muted flex items-center justify-center text-muted-foreground">
-                    Comic Preview
-                  </div>
-                  <div className="p-4 flex-1 flex flex-col">
-                    <h3 className="font-semibold mb-1">{book.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-4">Language: {book.language}</p>
-                    <Button variant="outline" className="w-full mt-auto">
-                      Read Now
-                    </Button>
-                  </div>
-                </motion.div>
-              ))}
             </div>
           </div>
         )}

@@ -9,11 +9,12 @@ import os
 import tempfile
 import shutil
 from pathlib import Path
-from translate_multipage import translate_comic_series
+from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
 from dotenv import load_dotenv
 import fitz
 from PIL import Image
 import glob
+import asyncio
 
 
 def extract_pdf_pages(pdf_path, output_dir="temp_pdf_pages", dpi=300, debug=False):
@@ -129,14 +130,20 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
         # Step 2: Translate all pages with context preservation
         if debug:
             print(f"\n📋 Step 2: Translating {len(page_files)} pages with context preservation...")
-        translate_comic_series(page_files, output_prefix, debug, source_lang=source_lang, target_lang=target_lang)
         
-        # Step 3: Generate list of output files
+        # Process each page with the multilang version
         translated_files = []
-        for i in range(len(page_files)):
+        for i, page_file in enumerate(page_files):
             output_file = f"{output_prefix}_{i + 1}.png"
-            if os.path.exists(output_file):
-                translated_files.append(output_file)
+            asyncio.run(process_comic_page_with_languages(
+                page_file,
+                output_file,
+                api_key,
+                source_lang=source_lang,
+                target_lang=target_lang,
+                debug=debug
+            ))
+            translated_files.append(output_file)
         
         if debug:
             print(f"\n{'='*80}")

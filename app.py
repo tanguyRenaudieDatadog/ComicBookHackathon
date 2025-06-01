@@ -6,7 +6,7 @@ from datetime import datetime
 import threading
 import logging
 from logging.handlers import RotatingFileHandler
-from translate_and_fill_bubbles import process_comic_page
+from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
 from translate_pdf_comic import translate_pdf_comic, images_to_pdf
 from dotenv import load_dotenv
 import asyncio
@@ -307,14 +307,15 @@ def download_all_pages(job_id):
     logger.error(f"No output file available for job {job_id}")
     return jsonify({'error': 'No output file available'}), 400
 
-# Import and modify the process_comic_page function to support multiple languages
 def process_comic_page_multilang(image_path, output_path, api_key, source_lang="English", target_lang="Russian"):
-    """Wrapper to call process_comic_page with language parameters"""
-    # This will be implemented by modifying the existing function
-    # For now, we'll import the modified version
-    from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
-    # Run the async function
-    asyncio.run(process_comic_page_with_languages(image_path, output_path, api_key, source_lang, target_lang))
+    """Wrapper to call process_comic_page_with_languages with async support"""
+    asyncio.run(process_comic_page_with_languages(
+        image_path, 
+        output_path, 
+        api_key,
+        source_lang=source_lang,
+        target_lang=target_lang
+    ))
 
 if __name__ == '__main__':
     logger.info("🚀 Starting Comic Translator Flask Application")

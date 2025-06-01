@@ -8,6 +8,7 @@ translate_comic_series to process them with continuous context.
 import os
 import tempfile
 import shutil
+import json
 from pathlib import Path
 from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
 from dotenv import load_dotenv
@@ -75,7 +76,7 @@ def extract_pdf_pages(pdf_path, output_dir="temp_pdf_pages", dpi=300, debug=Fals
 
 def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page", 
                        temp_dir="temp_pdf_pages", dpi=300, cleanup=True, debug=False,
-                       source_lang="English", target_lang="Russian"):
+                       source_lang="English", target_lang="Russian", save_translations_json=True):
     """
     Complete pipeline to translate a PDF comic book
     
@@ -88,9 +89,10 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
         debug: Enable detailed output
         source_lang: Source language name (e.g., "English")
         target_lang: Target language name (e.g., "Spanish")
+        save_translations_json: Whether to save translation data to JSON file
     
     Returns:
-        List of translated image file paths
+        Tuple of (translated_files, translation_data) or just translated_files if save_translations_json=False
     """
     # Load environment variables
     load_dotenv()
@@ -131,19 +133,69 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
         if debug:
             print(f"\n📋 Step 2: Translating {len(page_files)} pages with context preservation...")
         
+        # Initialize data structure for all translations
+        all_translations = {
+            "source_file": os.path.basename(pdf_path),
+            "source_language": source_lang,
+            "target_language": target_lang,
+            "total_pages": len(page_files),
+            "pages": {}
+        } if save_translations_json else None
+        
         # Process each page with the multilang version
         translated_files = []
         for i, page_file in enumerate(page_files):
             output_file = f"{output_prefix}_{i + 1}.png"
-            asyncio.run(process_comic_page_with_languages(
-                page_file,
-                output_file,
-                api_key,
-                source_lang=source_lang,
-                target_lang=target_lang,
-                debug=debug
-            ))
+            
+            if save_translations_json:
+                # Get translation data from the processing function
+                page_translation_data = asyncio.run(process_comic_page_with_languages(
+                    page_file,
+                    output_file,
+                    api_key,
+                    source_lang=source_lang,
+                    target_lang=target_lang,
+                    debug=debug,
+                    return_bubble_data=True
+                ))
+                
+                # Store translation data for this page
+                if page_translation_data:
+                    page_num = i + 1
+                    all_translations["pages"][page_num] = {
+                        "bubbles": {}
+                    }
+                    
+                    # Process each bubble's translation data
+                    for bubble_idx, bubble in enumerate(page_translation_data):
+                        bubble_num = bubble_idx + 1
+                        if bubble.get('original_text') and bubble['original_text'] not in ["EMPTY", "ERROR"]:
+                            all_translations["pages"][page_num]["bubbles"][bubble_num] = {
+                                "bubble_id": bubble.get('bubble_id', ''),
+                                "translated_text": bubble.get('translated_text', ''),
+                            }
+            else:
+                # Regular processing without capturing translation data
+                asyncio.run(process_comic_page_with_languages(
+                    page_file,
+                    output_file,
+                    api_key,
+                    source_lang=source_lang,
+                    target_lang=target_lang,
+                    debug=debug
+                ))
+            
             translated_files.append(output_file)
+        
+        # Save translation data to JSON file
+        if save_translations_json and all_translations and all_translations["pages"]:
+            json_filename = f"{output_prefix}_translations.json"
+            with open(json_filename, 'w', encoding='utf-8') as f:
+                json.dump(all_translations, f, ensure_ascii=False, indent=2)
+            
+            total_bubbles = sum(len(page_data["bubbles"]) for page_data in all_translations["pages"].values())
+            print(f"💾 Saved translation data to: {json_filename}")
+            print(f"📊 Total translations saved: {total_bubbles} bubbles across {len(all_translations['pages'])} pages")
         
         if debug:
             print(f"\n{'='*80}")
@@ -164,13 +216,16 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
             if debug:
                 print("✅ Cleanup complete")
         
-        return translated_files
+        if save_translations_json:
+            return translated_files, all_translations
+        else:
+            return translated_files
         
     except Exception as e:
         print(f"❌ Error during PDF translation: {e}")
         return []
 
-def batch_translate_pdfs(pdf_directory, output_directory="translated_comics", debug=False):
+def batch_translate_pdfs(pdf_directory, output_directory="translated_comics", debug=False, save_translations_json=True):
     """
     Translate multiple PDF files in a directory
     
@@ -178,6 +233,7 @@ def batch_translate_pdfs(pdf_directory, output_directory="translated_comics", de
         pdf_directory: Directory containing PDF files
         output_directory: Directory to save translated comics
         debug: Enable detailed output
+        save_translations_json: Whether to save translation data to JSON files
     """
     pdf_files = list(Path(pdf_directory).glob("*.pdf"))
     
@@ -201,15 +257,21 @@ def batch_translate_pdfs(pdf_directory, output_directory="translated_comics", de
         output_prefix = os.path.join(output_directory, f"{comic_name}_page")
         
         # Translate this PDF
-        translated_files = translate_pdf_comic(
+        result = translate_pdf_comic(
             str(pdf_file), 
             output_prefix,
             temp_dir=f"temp_{comic_name}_pages",
-            debug=debug
+            debug=debug,
+            save_translations_json=save_translations_json
         )
         
-        if translated_files:
-            print(f"✅ Successfully translated {pdf_file.name}")
+        if result:
+            if save_translations_json and isinstance(result, tuple):
+                translated_files, translation_data = result
+                print(f"✅ Successfully translated {pdf_file.name}")
+                print(f"📄 JSON saved with translations from {len(translation_data.get('pages', {}))} pages")
+            else:
+                print(f"✅ Successfully translated {pdf_file.name}")
         else:
             print(f"❌ Failed to translate {pdf_file.name}")
 
@@ -285,6 +347,9 @@ if __name__ == "__main__":
         print("  python translate_pdf_comic.py --batch ./comic_pdfs/ --debug")
         print("\nFlags:")
         print("  --debug    Show detailed output including bubble contents and translations")
+        print("\nOutput:")
+        print("  - Translated images: <output_prefix>_1.png, <output_prefix>_2.png, ...")
+        print("  - Translation data: <output_prefix>_translations.json")
         print("\nRequired dependencies:")
         print("  pip install PyMuPDF")
         sys.exit(1)
@@ -300,5 +365,11 @@ if __name__ == "__main__":
     else:
         pdf_path = sys.argv[1]
         output_prefix = sys.argv[2] if len(sys.argv) > 2 else "translated_pdf_page"
-        translated_files = translate_pdf_comic(pdf_path, output_prefix, debug=debug_mode) 
-        images_to_pdf(translated_files, output_pdf=f"translated_{pdf_path}")
+        result = translate_pdf_comic(pdf_path, output_prefix, debug=debug_mode)
+        
+        if result and isinstance(result, tuple):
+            translated_files, translation_data = result
+            images_to_pdf(translated_files, output_pdf=f"translated_{os.path.basename(pdf_path)}")
+        elif result:
+            translated_files = result
+            images_to_pdf(translated_files, output_pdf=f"translated_{os.path.basename(pdf_path)}")

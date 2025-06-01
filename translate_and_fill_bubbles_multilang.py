@@ -15,7 +15,6 @@ from ultralytics import YOLO
 from llama_api_client import LlamaAPIClient
 from dotenv import load_dotenv
 import textwrap
-from translation_context import TranslationContext
 import logging
 from httpx import AsyncClient
 import httpx
@@ -380,14 +379,14 @@ def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font
     draw.text((x + 5, y + 5), text[:20] + "...", font=font, fill='black')
     return False
 #%%
-async def process_comic_page_with_languages(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian", debug=False):
+async def process_comic_page_with_languages(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian", debug=False, return_bubble_data=False):
     """Main function to process a comic page with multi-language support"""
     
     # Load bubble detection model
     bubble_model = load_speech_bubble_model()
     if not bubble_model:
         logger.error("Failed to load speech bubble detection model")
-        return
+        return None if return_bubble_data else None
     
     # Detect bubbles
     logger.info("📍 Detecting speech bubbles...")
@@ -398,7 +397,7 @@ async def process_comic_page_with_languages(image_path, output_path, api_key=Non
     
     if not bubble_data:
         logger.warning("No speech bubbles detected in the image")
-        return
+        return [] if return_bubble_data else None
     
     # Extract text from each bubble using async approach
     logger.info("📖 Extracting text from bubbles asynchronously...")
@@ -497,6 +496,10 @@ async def process_comic_page_with_languages(image_path, output_path, api_key=Non
     total_bubbles = len(bubble_data)
     translated_bubbles = len([b for b in bubble_data if b['original_text'] not in ["EMPTY", "ERROR"]])
     logger.info(f"📊 Translation complete: {translated_bubbles}/{total_bubbles} bubbles processed")
+    
+    # Return bubble data if requested
+    if return_bubble_data:
+        return bubble_data
 
 #%%
 # Example usage

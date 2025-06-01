@@ -2,7 +2,7 @@
 Multi-language Comic Book Translation
 Supports translation between any language pairs
 """
-
+#%%
 import os
 import time
 import base64
@@ -173,8 +173,6 @@ async def extract_text_from_bubble_async(client: httpx.AsyncClient,bubble_image:
                 "Authorization": f"Bearer {os.environ.get('LLAMA_API_KEY')}"
             },
         )
-        #response {'id': 'AGw3BSWR5lAMmBvigyOuqep', 'completion_message': {'role': 'assistant', 'stop_reason': 'stop', 'content': {'type': 'text', 'text': 'HE HAS A PROPOSAL FOR YOU.'}}, 'metrics': [{'metric': 'num_completion_tokens', 'value': 10, 'unit': 'tokens'}, {'metric': 'num_prompt_tokens', 'value': 72, 'unit': 'tokens'}, {'metric': 'num_total_tokens', 'value': 82, 'unit': 'tokens'}]}
-        print("response",response.json())
         extracted_text = response.json()['completion_message']['content']['text']
         # Clean up temporary file
         os.remove(bubble_image)
@@ -230,6 +228,58 @@ def translate_text(client, text, context_manager=None, bubble_id=None, source_la
             print(f"Error translating text: {e}")
         return text
 
+async def translate_text_async(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian", debug=False):
+    """Translate text using Llama with context awareness"""
+    if text in ["EMPTY", "ERROR"]:
+        return text
+    
+    # Build context-aware prompt
+    prompt_parts = []
+    
+    # Add context if available
+    if context_manager:
+        context_prompt = context_manager.get_context_prompt(max_previous_bubbles=8)
+        if context_prompt:
+            prompt_parts.append("You are translating a comic book. Here's the context so far:")
+            prompt_parts.append(context_prompt)
+            prompt_parts.append("\n" + "="*50 + "\n")
+    
+    prompt_parts.append(f"""Now translate the following {source_lang} text to {target_lang}.
+    Consider the context and maintain consistency with character names and tone.
+    Return ONLY the translated text, nothing else.
+    Keep the translation natural and appropriate for comic book dialogue.
+
+    Text to translate: {text}""")
+    
+    prompt = "\n".join(prompt_parts)
+    
+    try:
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ]
+        model="Llama-4-Maverick-17B-128E-Instruct-FP8"
+        response = await client.post(
+            "https://api.llama.com/v1/chat/completions",
+            json={
+            "model": model,
+            "messages": messages,
+            },
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {os.environ.get('LLAMA_API_KEY')}"
+            },
+        )
+        translated = response.json()['completion_message']['content']['text']
+        return translated
+    except Exception as e:
+        if debug:
+            print(f"Error translating text: {e}")
+        return text
+
+#%%
 def get_font_for_language(target_lang):
     """Select appropriate font based on target language"""
     # Language-specific font mappings
@@ -329,68 +379,89 @@ def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font
     # If text doesn't fit, draw it anyway with smallest font
     draw.text((x + 5, y + 5), text[:20] + "...", font=font, fill='black')
     return False
-
+#%%
 async def process_comic_page_with_languages(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian", debug=False):
     """Main function to process a comic page with multi-language support"""
-    # Initialize Llama client
-    client_llama = LlamaAPIClient(
-        api_key=api_key or os.environ.get("LLAMA_API_KEY")
-    )
     
     # Load bubble detection model
     bubble_model = load_speech_bubble_model()
     if not bubble_model:
+        logger.error("Failed to load speech bubble detection model")
         return
     
     # Detect bubbles
-    print(f"\n📍 Detecting speech bubbles...")
+    logger.info("📍 Detecting speech bubbles...")
     bubble_data = detect_speech_bubbles(bubble_model, image_path, conf_threshold=0.3)
     
-    # Sort bubbles by position (top to bottom, left to right)
+    # Sort bubbles by position (top to bottom, left to right) for better context flow
     bubble_data.sort(key=lambda b: (b['y'], b['x']))
     
+    if not bubble_data:
+        logger.warning("No speech bubbles detected in the image")
+        return
+    
     # Extract text from each bubble using async approach
-    print(f"\n📖 Extracting text from bubbles asynchronously...")
+    logger.info("📖 Extracting text from bubbles asynchronously...")
     client = AsyncClient()
     t0_extract = time.time()
-    tasks = []
     
+    # Create tasks for text extraction
+    extraction_tasks = []
     for bubble in bubble_data:
         bubble_image = crop_bubble_region(image_path, bubble)
-        tasks.append(extract_text_from_bubble_async(client, bubble_image, bubble))
+        extraction_tasks.append(extract_text_from_bubble_async(client, bubble_image, bubble))
     
-    results = await asyncio.gather(*tasks)
+    # Execute all extraction tasks
+    extraction_results = await asyncio.gather(*extraction_tasks)
     tf_extract = time.time()
-    logger.info(f"Time taken to extract text from bubbles: {tf_extract - t0_extract} seconds")
+    logger.info(f"Time taken to extract text from bubbles: {tf_extract - t0_extract:.2f} seconds")
+    
+    # Assign extracted text to bubbles
+    for i, bubble in enumerate(bubble_data):
+        bubble['original_text'] = extraction_results[i]
+        logger.info(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
+    
+    # Translate texts asynchronously
+    logger.info(f"🌐 Translating from {source_lang} to {target_lang}...")
+    t0_translate = time.time()
+    
+    # Create translation tasks only for bubbles with text
+    translation_tasks = []
+    translation_indices = []  # Track which bubbles are being translated
     
     for i, bubble in enumerate(bubble_data):
-        bubble['original_text'] = results[i]
-        print(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
-    
-    await client.aclose()
-    
-    # Translate texts with accumulating context
-    print(f"\n🌐 Translating from {source_lang} to {target_lang}...")
-    
-    for bubble in bubble_data:
         if bubble['original_text'] not in ["EMPTY", "ERROR"]:
-            bubble['translated_text'] = translate_text(
-                client_llama, 
+            translation_tasks.append(translate_text_async(
+                client,
                 bubble['original_text'],
+                bubble_id=bubble['bubble_id'],
                 source_lang=source_lang,
                 target_lang=target_lang,
                 debug=debug
-            )
-            
-            if debug:
-                print(f"✓ {bubble['original_text']} → {bubble['translated_text']}")
-            else:
-                print(f"Bubble {bubble['bubble_id']}: {bubble['original_text'][:30]}... → {bubble['translated_text'][:30]}...")
+            ))
+            translation_indices.append(i)
         else:
+            logger.info(f"Bubble {bubble['bubble_id']} is empty or error. Skipping translation.")
             bubble['translated_text'] = bubble['original_text']
     
+    # Execute translation tasks if any exist
+    if translation_tasks:
+        translation_results = await asyncio.gather(*translation_tasks)
+        
+        # Assign translation results to the correct bubbles
+        for task_index, bubble_index in enumerate(translation_indices):
+            bubble_data[bubble_index]['translated_text'] = translation_results[task_index]
+            if debug:
+                logger.info(f"✓ {bubble_data[bubble_index]['original_text']} → {bubble_data[bubble_index]['translated_text']}")
+    
+    await client.aclose()
+    
+    tf_translate = time.time()
+    translated_count = len(translation_tasks)
+    logger.info(f"Time taken to translate {translated_count} bubbles: {tf_translate - t0_translate:.2f} seconds")
+    
     # Create image with white bubbles
-    print(f"\n🎨 Creating output image...")
+    logger.info("🎨 Creating output image...")
     img = Image.open(image_path).convert("RGBA")
     draw = ImageDraw.Draw(img)
     
@@ -415,13 +486,19 @@ async def process_comic_page_with_languages(image_path, output_path, api_key=Non
     
     # Then, draw translated text
     for bubble in bubble_data:
-        if bubble['translated_text'] not in ["EMPTY", "ERROR"]:
+        if bubble.get('translated_text') and bubble['translated_text'] not in ["EMPTY", "ERROR"]:
             draw_text_in_bubble(draw, bubble['translated_text'], bubble, target_lang, debug=debug)
     
     # Save result
     img.save(output_path)
-    print(f"\n✅ Saved translated comic to: {output_path}")
+    logger.info(f"✅ Saved translated comic to: {output_path}")
+    
+    # Log final summary
+    total_bubbles = len(bubble_data)
+    translated_bubbles = len([b for b in bubble_data if b['original_text'] not in ["EMPTY", "ERROR"]])
+    logger.info(f"📊 Translation complete: {translated_bubbles}/{total_bubbles} bubbles processed")
 
+#%%
 # Example usage
 if __name__ == "__main__":
     import sys
@@ -443,3 +520,4 @@ if __name__ == "__main__":
         print("🐛 Debug mode enabled - showing detailed translation")
     
     process_comic_page_with_languages(image_path, output_path, debug=debug_mode) 
+# %%

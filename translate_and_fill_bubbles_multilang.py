@@ -187,7 +187,7 @@ async def extract_text_from_bubble_async(client: httpx.AsyncClient,bubble_image:
         return "ERROR"
 
 
-def translate_text(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian"):
+def translate_text(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian", debug=False):
     """Translate text using Llama with context awareness"""
     if text in ["EMPTY", "ERROR"]:
         return text
@@ -330,7 +330,7 @@ def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font
     draw.text((x + 5, y + 5), text[:20] + "...", font=font, fill='black')
     return False
 
-async def process_comic_page_with_languages(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian"):
+async def process_comic_page_with_languages(image_path, output_path, api_key=None, source_lang="English", target_lang="Russian", debug=False):
     """Main function to process a comic page with multi-language support"""
     # Initialize Llama client
     client_llama = LlamaAPIClient(

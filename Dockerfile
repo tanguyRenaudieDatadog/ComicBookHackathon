@@ -11,11 +11,7 @@ RUN npm run build
 # ---- Stage 2: Python runtime ----
 FROM python:3.11-slim
 
-# System dependencies:
-#  - libgl1/libglib2.0: OpenCV headless still needs these at import time
-#  - libgomp1: ultralytics / torch threading
-#  - fonts-dejavu + fonts-noto-cjk: multi-language text rendering in bubbles
-#  - git: huggingface_hub may invoke git to clone
+# System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -27,12 +23,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install PyTorch CPU-only FIRST (avoids 2.5GB CUDA download from ultralytics)
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
-
-# Install remaining Python deps (ultralytics will skip torch since it's already installed)
+# Install all Python deps in one shot to avoid cache conflicts:
+# 1) torch CPU-only first from PyTorch index
+# 2) then ultralytics + everything else from PyPI
 COPY requirements.txt constraints.txt ./
-RUN pip install --no-cache-dir -c constraints.txt -r requirements.txt
+RUN pip install --no-cache-dir \
+      torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+  && pip install --no-cache-dir -c constraints.txt -r requirements.txt \
+  && python -c "from ultralytics import YOLO; print('ultralytics OK')"
 
 # Copy application code
 COPY app.py \

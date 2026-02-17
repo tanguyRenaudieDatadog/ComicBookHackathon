@@ -1,68 +1,63 @@
 'use client';
 
-import { motion } from "framer-motion";
-import { Upload, Languages, BookOpen, Download } from "lucide-react";
-
-const steps = [
-  {
-    name: "Upload Your Comic",
-    description: "Upload your comic or manga in PDF format. We support most common comic formats.",
-    icon: Upload,
-  },
-  {
-    name: "Choose Language",
-    description: "Select your target language from our extensive list of supported languages.",
-    icon: Languages,
-  },
-  {
-    name: "Read Instantly",
-    description: "Start reading your translated comic immediately as pages are processed.",
-    icon: BookOpen,
-  },
-  {
-    name: "Download & Share",
-    description: "Download your translated comic or share it directly with friends.",
-    icon: Download,
-  },
-];
+import { motion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
+import { goToDemo } from '@/lib/navigation';
 
 export function HowItWorks() {
   return (
-    <div id="how-it-works" className="bg-background py-24 sm:py-32">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="text-base font-semibold leading-7 text-primary">Simple Process</h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            How It Works
-          </p>
-          <p className="mt-6 text-lg leading-8 text-muted-foreground">
-            Translate your comics in just a few simple steps. Our AI handles the complex parts while you enjoy the results.
-          </p>
-        </div>
-        <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-          <div className="grid grid-cols-1 gap-y-8 gap-x-6 sm:grid-cols-2 lg:grid-cols-4">
-            {steps.map((step, index) => (
-              <motion.div
-                key={step.name}
-                className="relative pl-9"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+    <>
+      {/* Footer */}
+      <footer className="footer">
+        <div className="container">
+          <div className="footer-grid">
+            {/* Main CTA Section */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 0.8 }}
+              className="footer-main"
+            >
+              <h3>Ready to Explore Stories in Any Language?</h3>
+              <p>Join thousands of readers discovering amazing comics and manga from around the world!</p>
+              <motion.button
+                className="cta-button footer-cta"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={goToDemo}
               >
-                <div className="absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                  <step.icon className="h-5 w-5 text-primary" aria-hidden="true" />
-                </div>
-                <h3 className="text-lg font-semibold leading-8 text-foreground">
-                  {step.name}
-                </h3>
-                <p className="mt-2 text-base leading-7 text-muted-foreground">
-                  {step.description}
-                </p>
-              </motion.div>
-            ))}
+                Get Started Now <ArrowRight className="button-icon" />
+              </motion.button>
+            </motion.div>
+
+            {/* Stats Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="footer-stats"
+            >
+              <div className="footer-stat">
+                <span className="stat-number">1000+</span>
+                <span className="stat-label">Comics Translated</span>
+              </div>
+              <div className="footer-stat">
+                <span className="stat-number">50K+</span>
+                <span className="stat-label">Happy Readers</span>
+              </div>
+              <div className="footer-stat">
+                <span className="stat-number">12+</span>
+                <span className="stat-label">Languages</span>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Footer Bottom */}
+          <div className="footer-bottom">
+            <p>&copy; 2024 Comic Translation Revolution. Breaking barriers, connecting worlds.</p>
           </div>
         </div>
-      </div>
-    </div>
+      </footer>
+    </>
   );
 } 

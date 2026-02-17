@@ -1,0 +1,4 @@
+# Constraints to force headless OpenCV
+opencv-python-headless==4.11.0.86
+# Block regular opencv-python completely
+opencv-python==999.999.999  # This version doesn't exist, blocking the package 

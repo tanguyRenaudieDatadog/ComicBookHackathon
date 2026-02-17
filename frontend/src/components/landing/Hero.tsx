@@ -1,61 +1,178 @@
 'use client';
 
-import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { motion } from 'framer-motion';
+import { BookOpen, Users, Star, ArrowRight, Zap, Sparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { goToDemo } from '@/lib/navigation';
 
 export function Hero() {
+  const [mounted, setMounted] = useState(false);
+
+  // Only render particles after component mounts (client-side only)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const comicImages = [
+    'comicbook.png',
+    'comicbook.webp',
+    'comicbook2.webp', 
+    'comicbook3.jpg',
+    'translated_comic_c08931ab-736f-498c-881a-5dd28023534b.png',
+    'translated_comic_d81f67a6-029d-4cdc-a6eb-9d525c44a0d9.png'
+  ];
+
+  // Static particle positions to avoid hydration issues
+  const staticParticlePositions = [
+    { left: '15%', top: '20%' },
+    { left: '75%', top: '15%' },
+    { left: '25%', top: '65%' },
+    { left: '85%', top: '70%' },
+    { left: '45%', top: '25%' },
+    { left: '65%', top: '55%' },
+    { left: '10%', top: '85%' },
+    { left: '90%', top: '40%' },
+  ];
+
   return (
-    <div className="relative isolate overflow-hidden bg-background">
-      <div className="mx-auto max-w-7xl px-6 pb-24 pt-10 sm:pb-32 lg:flex lg:px-8 lg:py-40">
-        <motion.div 
-          className="mx-auto max-w-2xl flex-shrink-0 lg:mx-0 lg:max-w-xl lg:pt-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="mt-24 sm:mt-32 lg:mt-16">
-            <a href="#" className="inline-flex space-x-6">
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold leading-6 text-primary ring-1 ring-inset ring-primary/10">
-                What's new
-              </span>
-              <span className="inline-flex items-center space-x-2 text-sm font-medium leading-6 text-muted-foreground">
-                <span>Just shipped v1.0</span>
-              </span>
-            </a>
-          </div>
-          <h1 className="mt-10 text-4xl font-bold tracking-tight text-foreground sm:text-6xl">
-            Translate Comics in Any Language
-          </h1>
-          <p className="mt-6 text-lg leading-8 text-muted-foreground">
-            Transform your favorite comics and manga into any language while preserving the original art and style. 
-            Our AI-powered translation system ensures accurate and natural translations.
-          </p>
-          <div className="mt-10 flex items-center gap-x-6">
-            <Button size="lg">
-              Get started
-            </Button>
-            <Button variant="outline" size="lg">
-              Learn more
-            </Button>
-          </div>
-        </motion.div>
-        <motion.div 
-          className="mx-auto mt-16 flex max-w-2xl sm:mt-24 lg:ml-10 lg:mr-0 lg:mt-0 lg:max-w-none lg:flex-none xl:ml-32"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <div className="max-w-3xl flex-none sm:max-w-5xl lg:max-w-none">
-            <img
-              src="/hero-image.png"
-              alt="App screenshot"
-              width={2432}
-              height={1442}
-              className="w-[76rem] rounded-md bg-white/5 shadow-2xl ring-1 ring-white/10"
+    <section className="hero-manga">
+      {/* Simplified Background Layers */}
+      <div className="hero-bg-simple"></div>
+      
+      {/* Client-side Only Particles */}
+      {mounted && (
+        <div className="particles-container">
+          {staticParticlePositions.map((position, index) => (
+            <motion.div
+              key={index}
+              className="particle"
+              style={{
+                left: position.left,
+                top: position.top,
+              }}
+              animate={{
+                y: [0, -50, 0],
+                opacity: [0, 0.6, 0],
+                scale: [0, 0.8, 0],
+              }}
+              transition={{
+                duration: 4 + (index % 3),
+                repeat: Infinity,
+                delay: index * 0.5,
+              }}
             />
-          </div>
+          ))}
+        </div>
+      )}
+
+      {/* Simplified Comic Gallery */}
+      <div className="comic-gallery">
+        {comicImages.map((image, index) => (
+          <motion.div
+            key={index}
+            className={`floating-comic-${index + 1}`}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ 
+              opacity: [0.4, 0.6, 0.4],
+              y: [0, -15, 0],
+            }}
+            transition={{
+              duration: 5 + index,
+              repeat: Infinity,
+              delay: index * 0.8,
+            }}
+            whileHover={{ 
+              scale: 1.1, 
+              opacity: 0.9,
+              zIndex: 100,
+            }}
+          >
+            <div className="comic-frame">
+              <img src={`/${image}`} alt={`Comic ${index + 1}`} />
+              <div className="comic-glow"></div>
+              <div className="comic-border"></div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+      
+      {/* Hero Content */}
+      <div className="hero-content-manga">
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1 }}
+          className="hero-text-clean"
+        >
+          {/* Simplified Title */}
+          <motion.div
+            className="title-simple"
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.8 }}
+          >
+            <h1 className="hero-title-clean">
+              <span className="gradient-text-simple">COMIC</span>
+              <span className="explosion-text">💥</span>
+              <span className="gradient-text-simple manga">MANGA</span>
+              <div className="subtitle-clean">
+                <Zap className="subtitle-icon-simple" />
+                AI TRANSLATOR
+              </div>
+            </h1>
+          </motion.div>
+          
+          {/* Clean Description */}
+          <motion.p 
+            className="hero-description-clean"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+          >
+            Translate any comic into <strong>12+ languages</strong> with perfect 
+            <strong> context</strong> and <strong>accuracy</strong>
+          </motion.p>
+          
+          {/* Clean CTA Button */}
+          <motion.button
+            className="cta-button-clean"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.8 }}
+            whileHover={{ 
+              scale: 1.05,
+              boxShadow: "0 15px 35px rgba(255,107,107,0.3)",
+            }}
+            whileTap={{ scale: 0.95 }}
+            onClick={goToDemo}
+          >
+            <span className="button-text">Start Translating</span>
+            <ArrowRight className="button-icon-clean" />
+          </motion.button>
         </motion.div>
       </div>
-    </div>
+
+      {/* Simplified Action Bubbles */}
+      <div className="action-bubbles-simple">
+        <motion.div 
+          className="bubble-simple pow"
+          animate={{ 
+            scale: [1, 1.1, 1],
+          }}
+          transition={{ duration: 3, repeat: Infinity }}
+        >
+          POW!
+        </motion.div>
+        <motion.div 
+          className="bubble-simple boom"
+          animate={{ 
+            scale: [1, 1.15, 1],
+          }}
+          transition={{ duration: 3.5, repeat: Infinity, delay: 1 }}
+        >
+          BOOM!
+        </motion.div>
+      </div>
+    </section>
   );
 } 

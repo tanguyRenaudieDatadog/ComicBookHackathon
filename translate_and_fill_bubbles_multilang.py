@@ -16,7 +16,6 @@ from typing import List, Dict, Tuple
 from PIL import Image, ImageDraw, ImageFont
 import cv2
 import numpy as np
-from ultralytics import YOLO
 from openai import OpenAI, AsyncOpenAI
 from dotenv import load_dotenv
 import textwrap
@@ -29,6 +28,7 @@ load_dotenv()
 def load_speech_bubble_model():
     """Load the finetuned YOLOv8 model for speech bubble detection"""
     try:
+        from ultralytics import YOLO
         model = YOLO('weights/ogkalu_model.pt')
         print("✅ Successfully loaded speech bubble detection model")
         return model

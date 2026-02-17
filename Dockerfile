@@ -28,7 +28,8 @@ WORKDIR /app
 # 2) then ultralytics + everything else from PyPI
 COPY requirements.txt constraints.txt ./
 RUN pip install --no-cache-dir \
-      torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+      --extra-index-url https://download.pytorch.org/whl/cpu \
+      torch torchvision \
   && pip install --no-cache-dir -c constraints.txt -r requirements.txt \
   && python -c "from ultralytics import YOLO; print('ultralytics OK')"
 

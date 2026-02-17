@@ -1,15 +1,24 @@
-from flask import Flask, render_template, request, jsonify, send_file
-from werkzeug.utils import secure_filename
 import os
+import sys
+
+# Force headless mode for OpenCV BEFORE any imports
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+os.environ['DISPLAY'] = ''
+os.environ['OPENCV_OPENCL_RUNTIME'] = ''
+
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
+from werkzeug.utils import secure_filename
 import uuid
 from datetime import datetime
 import threading
 import logging
 from logging.handlers import RotatingFileHandler
-from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
-from translate_pdf_comic import translate_pdf_comic, images_to_pdf
 from dotenv import load_dotenv
 import asyncio
+
+# Import translation modules
+from translate_and_fill_bubbles_multilang import process_comic_page_with_languages
+from translate_pdf_comic import translate_pdf_comic, images_to_pdf
 
 # Load environment variables
 load_dotenv()
@@ -18,6 +27,14 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'outputs'
+
+# Production configuration
+if os.getenv('FLASK_ENV') == 'production':
+    # Serve frontend build files in production
+    frontend_build_path = os.path.join(os.path.dirname(__file__), 'frontend', 'out')
+    if os.path.exists(frontend_build_path):
+        app.static_folder = frontend_build_path
+        app.static_url_path = '/'
 
 # Configure logging
 def setup_logging():
@@ -93,7 +110,35 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
+    # In production, serve the Next.js build
+    if os.getenv('FLASK_ENV') == 'production':
+        frontend_build_path = os.path.join(os.path.dirname(__file__), 'frontend', 'out')
+        if os.path.exists(os.path.join(frontend_build_path, 'index.html')):
+            return send_from_directory(frontend_build_path, 'index.html')
+    
+    # Fallback to Flask template
     return render_template('index.html', languages=SUPPORTED_LANGUAGES)
+
+# Serve static assets for production
+@app.route('/<path:path>')
+def serve_static(path):
+    if os.getenv('FLASK_ENV') == 'production':
+        frontend_build_path = os.path.join(os.path.dirname(__file__), 'frontend', 'out')
+        if os.path.exists(frontend_build_path):
+            try:
+                # First try to serve the exact file
+                return send_from_directory(frontend_build_path, path)
+            except:
+                # If that fails, try to serve path/index.html for directory routes
+                try:
+                    index_path = os.path.join(path, 'index.html')
+                    return send_from_directory(frontend_build_path, index_path)
+                except:
+                    # Final fallback to main index.html for SPA routing
+                    return send_from_directory(frontend_build_path, 'index.html')
+    
+    # Fallback for development
+    return jsonify({'error': 'Not found'}), 404
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -158,38 +203,20 @@ def process_translation(job_id, input_path, source_lang, target_lang):
     """Process the translation job in background"""
     logger.info(f"Starting translation processing for job {job_id}")
     
-    def status_callback(current_page, total_pages, message):
-        """Callback to update job status with page progress"""
-        if total_pages > 0:
-            # Calculate progress based on page completion
-            progress = int((current_page / total_pages) * 80) + 15  # Reserve 15% for setup, 5% for final steps
-        else:
-            progress = 15  # Initial setup progress
-            
-        translation_jobs[job_id].update({
-            'progress': progress,
-            'current_page': current_page,
-            'total_pages': total_pages,
-            'message': message
-        })
-        logger.info(f"Job {job_id}: {message} (Progress: {progress}%)")
-    
     try:
         # Update progress
         translation_jobs[job_id]['progress'] = 10
-        translation_jobs[job_id]['message'] = "Initializing translation..."
         logger.debug(f"Job {job_id}: Progress updated to 10%")
         
         # Get API key
-        api_key = os.getenv("api_key")
+        api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             logger.error(f"Job {job_id}: API key not configured")
             raise Exception("API key not configured")
         
         # Update progress
-        translation_jobs[job_id]['progress'] = 15
-        translation_jobs[job_id]['message'] = "Setting up translation environment..."
-        logger.debug(f"Job {job_id}: Progress updated to 15%")
+        translation_jobs[job_id]['progress'] = 30
+        logger.debug(f"Job {job_id}: Progress updated to 30%")
         
         # Check if this is a PDF
         is_pdf = translation_jobs[job_id]['is_pdf']
@@ -206,8 +233,7 @@ def process_translation(job_id, input_path, source_lang, target_lang):
                 temp_dir=f"temp_{job_id}_pages",
                 debug=False,
                 source_lang=SUPPORTED_LANGUAGES[source_lang],
-                target_lang=SUPPORTED_LANGUAGES[target_lang],
-                status_callback=status_callback
+                target_lang=SUPPORTED_LANGUAGES[target_lang]
             )
             
             if not translated_files:
@@ -215,10 +241,6 @@ def process_translation(job_id, input_path, source_lang, target_lang):
                 raise Exception("Failed to translate PDF")
             
             logger.info(f"Job {job_id}: PDF translation completed, {len(translated_files)} pages processed")
-            
-            # Update progress for final steps
-            translation_jobs[job_id]['progress'] = 95
-            translation_jobs[job_id]['message'] = "Combining pages into final PDF..."
             
             # Combine translated images back into PDF
             output_pdf = os.path.join(app.config['OUTPUT_FOLDER'], f"translated_{job_id}.pdf")
@@ -238,25 +260,32 @@ def process_translation(job_id, input_path, source_lang, target_lang):
             
             logger.info(f"Job {job_id}: Starting image translation, output: {output_path}")
             
-            translation_jobs[job_id]['progress'] = 50
-            translation_jobs[job_id]['message'] = "Translating image..."
-            
-            # Process the comic with language parameters
-            process_comic_page_multilang(
-                input_path, 
-                output_path, 
-                api_key,
-                source_lang=SUPPORTED_LANGUAGES[source_lang],
-                target_lang=SUPPORTED_LANGUAGES[target_lang]
-            )
+            try:
+                # Process the comic with language parameters
+                asyncio.run(process_comic_page_with_languages(
+                    input_path, 
+                    output_path, 
+                    api_key,
+                    source_lang=SUPPORTED_LANGUAGES[source_lang],
+                    target_lang=SUPPORTED_LANGUAGES[target_lang]
+                ))
+                
+                # Verify the output file was created
+                if not os.path.exists(output_path):
+                    logger.error(f"Job {job_id}: Translation completed but output file not found: {output_path}")
+                    raise Exception(f"Translation completed but output file was not created: {output_path}")
+                    
+                logger.info(f"Job {job_id}: Image translation completed successfully at {output_path}")
+                
+            except Exception as translation_error:
+                logger.error(f"Job {job_id}: Translation function failed: {str(translation_error)}")
+                raise Exception(f"Translation failed: {str(translation_error)}")
             
             translation_jobs[job_id]['output_file'] = output_path
-            logger.info(f"Job {job_id}: Image translation completed at {output_path}")
         
         # Update job status
         translation_jobs[job_id]['status'] = 'completed'
         translation_jobs[job_id]['progress'] = 100
-        translation_jobs[job_id]['message'] = "Translation completed successfully!"
         
         logger.info(f"✅ TRANSLATION COMPLETED - Job ID: {job_id}, "
                    f"Source: {SUPPORTED_LANGUAGES[source_lang]}, "
@@ -265,7 +294,6 @@ def process_translation(job_id, input_path, source_lang, target_lang):
     except Exception as e:
         translation_jobs[job_id]['status'] = 'failed'
         translation_jobs[job_id]['error'] = str(e)
-        translation_jobs[job_id]['message'] = f"Translation failed: {str(e)}"
         logger.error(f"❌ TRANSLATION FAILED - Job ID: {job_id}, Error: {str(e)}")
 
 @app.route('/status/<job_id>')
@@ -281,10 +309,7 @@ def get_status(job_id):
         'progress': job['progress'],
         'error': job['error'],
         'is_pdf': job.get('is_pdf', False),
-        'all_pages': job.get('all_pages', []),
-        'current_page': job.get('current_page', 0),
-        'total_pages': job.get('total_pages', 0),
-        'message': job.get('message', 'Processing...')
+        'all_pages': job.get('all_pages', [])
     })
 
 @app.route('/download/<job_id>')
@@ -338,6 +363,47 @@ def download_all_pages(job_id):
     logger.error(f"No output file available for job {job_id}")
     return jsonify({'error': 'No output file available'}), 400
 
+@app.route('/download/original/<job_id>')
+def download_original(job_id):
+    if job_id not in translation_jobs:
+        logger.warning(f"Original download request for unknown job ID: {job_id}")
+        return jsonify({'error': 'Job not found'}), 404
+
+    job = translation_jobs[job_id]
+    if job['status'] != 'completed':
+        logger.warning(f"Original download request for incomplete job {job_id}")
+        return jsonify({'error': 'Translation not ready'}), 400
+
+    input_file = job.get('input_file')
+    if not input_file or not os.path.exists(input_file):
+        logger.error(f"Original file not found for job {job_id}")
+        return jsonify({'error': 'Original file not found'}), 404
+
+    # If the original is already a PDF, serve it directly
+    if input_file.lower().endswith('.pdf'):
+        logger.info(f"📥 Original PDF download for job {job_id}: {input_file}")
+        return send_file(
+            input_file,
+            as_attachment=True,
+            download_name=f"original_{job_id}.pdf"
+        )
+
+    # For images, convert to a single-page PDF so the reader handles it uniformly
+    original_pdf = os.path.join(app.config['OUTPUT_FOLDER'], f"original_{job_id}.pdf")
+    if not os.path.exists(original_pdf):
+        try:
+            images_to_pdf([input_file], original_pdf)
+        except Exception as e:
+            logger.error(f"Failed to convert original to PDF for job {job_id}: {e}")
+            return jsonify({'error': 'Failed to convert original to PDF'}), 500
+
+    logger.info(f"📥 Original (converted) PDF download for job {job_id}: {original_pdf}")
+    return send_file(
+        original_pdf,
+        as_attachment=True,
+        download_name=f"original_{job_id}.pdf"
+    )
+
 def process_comic_page_multilang(image_path, output_path, api_key, source_lang="English", target_lang="Russian"):
     """Wrapper to call process_comic_page_with_languages with async support"""
     asyncio.run(process_comic_page_with_languages(
@@ -350,7 +416,15 @@ def process_comic_page_multilang(image_path, output_path, api_key, source_lang="
 
 if __name__ == '__main__':
     logger.info("🚀 Starting Comic Translator Flask Application")
-    logger.info(f"Server will be available at http://localhost:8080")
+    
+    # Railway configuration - ALWAYS bind to 0.0.0.0 for Railway
+    port = int(os.getenv('PORT', 8080))
+    host = '0.0.0.0'  # Always use 0.0.0.0 for Railway deployment
+    debug = os.getenv('FLASK_ENV') != 'production'
+    
+    logger.info(f"Server will be available at http://{host}:{port}")
     logger.info(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
     logger.info(f"Output folder: {app.config['OUTPUT_FOLDER']}")
-    app.run(debug=True, host='localhost', port=8080) 
+    logger.info(f"Environment: {os.getenv('FLASK_ENV', 'development')}")
+    
+    app.run(debug=debug, host=host, port=port) 

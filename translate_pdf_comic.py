@@ -95,12 +95,12 @@ def translate_pdf_comic(pdf_path, output_prefix="translated_pdf_page",
     """
     # Load environment variables
     load_dotenv()
-    api_key = os.getenv("api_key")
-    
+    api_key = os.getenv("OPENAI_API_KEY")
+
     if not api_key:
-        print("❌ Error: api_key not found in .env file")
+        print("❌ Error: OPENAI_API_KEY not found in .env file")
         print("Please create a .env file with your API key:")
-        print("api_key=your_llama_api_key_here")
+        print("OPENAI_API_KEY=sk-your-key-here")
         return []
     
     if not os.path.exists(pdf_path):

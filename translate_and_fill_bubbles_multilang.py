@@ -4,21 +4,24 @@ Supports translation between any language pairs
 """
 #%%
 import os
+# Force headless mode for OpenCV
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+os.environ['DISPLAY'] = ''
+
 import time
 import base64
 import asyncio
+import uuid
 from typing import List, Dict, Tuple
 from PIL import Image, ImageDraw, ImageFont
 import cv2
 import numpy as np
 from ultralytics import YOLO
-from llama_api_client import LlamaAPIClient
+from openai import OpenAI, AsyncOpenAI
 from dotenv import load_dotenv
 import textwrap
 from translation_context import TranslationContext
 import logging
-from httpx import AsyncClient
-import httpx
 logger = logging.getLogger('comic_translator')
 # Load environment variables
 load_dotenv()
@@ -62,38 +65,39 @@ def detect_speech_bubbles(model, image_path, conf_threshold=0.5):
     return bubble_data
 
 def encode_image(image_path):
-    """Encode image to base64 for Llama API"""
+    """Encode image to base64 for OpenAI API"""
     with open(image_path, "rb") as img:
         return base64.b64encode(img.read()).decode('utf-8')
 
-def crop_bubble_region(image_path, bubble_info, padding=10):
+def crop_bubble_region(image_path, bubble_info, padding=10, job_id=None):
     """Crop the bubble region from the image with some padding"""
     img = cv2.imread(image_path)
-    
+
     x = max(0, bubble_info['x'] - padding)
     y = max(0, bubble_info['y'] - padding)
     x2 = min(img.shape[1], bubble_info['x'] + bubble_info['width'] + padding)
     y2 = min(img.shape[0], bubble_info['y'] + bubble_info['height'] + padding)
-    
+
     cropped = img[y:y2, x:x2]
-    
-    # Save temporary cropped image
-    temp_path = f"temp_bubble_{bubble_info['bubble_id']}.png"
+
+    # Save temporary cropped image with unique prefix to avoid collisions
+    prefix = job_id or uuid.uuid4().hex[:8]
+    temp_path = f"temp_bubble_{prefix}_{bubble_info['bubble_id']}.png"
     cv2.imwrite(temp_path, cropped)
-    
+
     return temp_path
 
 def extract_text_from_bubble(client, bubble_image_path, bubble_info):
-    """Extract text from a single bubble using Llama's vision capabilities"""
+    """Extract text from a single bubble using OpenAI's vision capabilities"""
     base64_image = encode_image(bubble_image_path)
-    
-    prompt = """Extract ONLY the text content from this speech bubble. 
+
+    prompt = """Extract ONLY the text content from this speech bubble.
     Return just the text, nothing else. If there's no text, return 'EMPTY'.
     Do not include any explanations or additional information."""
-    
+
     try:
         response = client.chat.completions.create(
-            model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -112,12 +116,12 @@ def extract_text_from_bubble(client, bubble_image_path, bubble_info):
                 },
             ],
         )
-        
-        extracted_text = response.completion_message.content.text.strip()
-        
+
+        extracted_text = response.choices[0].message.content.strip()
+
         # Clean up temporary file
         os.remove(bubble_image_path)
-        
+
         return extracted_text
     except Exception as e:
         print(f"Error extracting text from bubble {bubble_info['bubble_id']}: {e}")
@@ -126,13 +130,12 @@ def extract_text_from_bubble(client, bubble_image_path, bubble_info):
         return "ERROR"
 
 
-async def extract_text_from_bubble_async(client: httpx.AsyncClient,bubble_image:os.PathLike,bubble:dict):
+async def extract_text_from_bubble_async(client: AsyncOpenAI, bubble_image: os.PathLike, bubble: dict):
     base64_image = encode_image(bubble_image)
-    
-    prompt = """Extract ONLY the text content from this speech bubble. 
+
+    prompt = """Extract ONLY the text content from this speech bubble.
     Return just the text, nothing else. If there's no text, return 'EMPTY'.
     Do not include any explanations or additional information."""
-    model="Llama-4-Maverick-17B-128E-Instruct-FP8"
 
     messages = [
         {
@@ -146,11 +149,6 @@ async def extract_text_from_bubble_async(client: httpx.AsyncClient,bubble_image:
                     "type": "text",
                     "text": prompt,
                 },
-            ]
-        },
-        {
-            "role": "user",
-            "content": [
                 {
                     "type": "image_url",
                     "image_url": {
@@ -162,21 +160,14 @@ async def extract_text_from_bubble_async(client: httpx.AsyncClient,bubble_image:
     ]
 
     try:
-        response = await client.post(
-        "https://api.llama.com/v1/chat/completions",
-            json={
-            "model": model,
-            "messages": messages,
-            },
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.environ.get('LLAMA_API_KEY')}"
-            },
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
         )
-        extracted_text = response.json()['completion_message']['content']['text']
+        extracted_text = response.choices[0].message.content.strip()
         # Clean up temporary file
         os.remove(bubble_image)
-        
+
         return extracted_text
     except Exception as e:
         print(f"Error extracting text from bubble {bubble['bubble_id']}: {e}")
@@ -186,13 +177,13 @@ async def extract_text_from_bubble_async(client: httpx.AsyncClient,bubble_image:
 
 
 def translate_text(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian", debug=False):
-    """Translate text using Llama with context awareness"""
+    """Translate text using OpenAI with context awareness"""
     if text in ["EMPTY", "ERROR"]:
         return text
-    
+
     # Build context-aware prompt
     prompt_parts = []
-    
+
     # Add context if available
     if context_manager:
         context_prompt = context_manager.get_context_prompt(max_previous_bubbles=8)
@@ -200,19 +191,21 @@ def translate_text(client, text, context_manager=None, bubble_id=None, source_la
             prompt_parts.append("You are translating a comic book. Here's the context so far:")
             prompt_parts.append(context_prompt)
             prompt_parts.append("\n" + "="*50 + "\n")
-    
-    prompt_parts.append(f"""Now translate the following {source_lang} text to {target_lang}.
+
+    prompt_parts.append(f"""Now translate the following text to {target_lang}.
+    The user indicated the source language is {source_lang}, but detect the actual language of the text.
+    If the text is in a different language than {source_lang}, translate from the detected language instead.
     Consider the context and maintain consistency with character names and tone.
     Return ONLY the translated text, nothing else.
     Keep the translation natural and appropriate for comic book dialogue.
 
     Text to translate: {text}""")
-    
+
     prompt = "\n".join(prompt_parts)
-    
+
     try:
         response = client.chat.completions.create(
-            model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -220,8 +213,8 @@ def translate_text(client, text, context_manager=None, bubble_id=None, source_la
                 },
             ],
         )
-        
-        translated = response.completion_message.content.text.strip()
+
+        translated = response.choices[0].message.content.strip()
         return translated
     except Exception as e:
         if debug:
@@ -229,13 +222,13 @@ def translate_text(client, text, context_manager=None, bubble_id=None, source_la
         return text
 
 async def translate_text_async(client, text, context_manager=None, bubble_id=None, source_lang="English", target_lang="Russian", debug=False):
-    """Translate text using Llama with context awareness"""
+    """Translate text using OpenAI with context awareness"""
     if text in ["EMPTY", "ERROR"]:
         return text
-    
+
     # Build context-aware prompt
     prompt_parts = []
-    
+
     # Add context if available
     if context_manager:
         context_prompt = context_manager.get_context_prompt(max_previous_bubbles=8)
@@ -243,36 +236,29 @@ async def translate_text_async(client, text, context_manager=None, bubble_id=Non
             prompt_parts.append("You are translating a comic book. Here's the context so far:")
             prompt_parts.append(context_prompt)
             prompt_parts.append("\n" + "="*50 + "\n")
-    
-    prompt_parts.append(f"""Now translate the following {source_lang} text to {target_lang}.
+
+    prompt_parts.append(f"""Now translate the following text to {target_lang}.
+    The user indicated the source language is {source_lang}, but detect the actual language of the text.
+    If the text is in a different language than {source_lang}, translate from the detected language instead.
     Consider the context and maintain consistency with character names and tone.
     Return ONLY the translated text, nothing else.
     Keep the translation natural and appropriate for comic book dialogue.
 
     Text to translate: {text}""")
-    
+
     prompt = "\n".join(prompt_parts)
-    
+
     try:
-        messages=[
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ]
-        model="Llama-4-Maverick-17B-128E-Instruct-FP8"
-        response = await client.post(
-            "https://api.llama.com/v1/chat/completions",
-            json={
-            "model": model,
-            "messages": messages,
-            },
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.environ.get('LLAMA_API_KEY')}"
-            },
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
         )
-        translated = response.json()['completion_message']['content']['text']
+        translated = response.choices[0].message.content.strip()
         return translated
     except Exception as e:
         if debug:
@@ -280,34 +266,87 @@ async def translate_text_async(client, text, context_manager=None, bubble_id=Non
         return text
 
 #%%
+def _find_matplotlib_font():
+    """Find the DejaVuSans font bundled with matplotlib as ultimate fallback"""
+    try:
+        import matplotlib
+        mpl_data = os.path.join(os.path.dirname(matplotlib.__file__), 'mpl-data', 'fonts', 'ttf')
+        dejavu = os.path.join(mpl_data, 'DejaVuSans.ttf')
+        if os.path.exists(dejavu):
+            return dejavu
+    except ImportError:
+        pass
+    return None
+
 def get_font_for_language(target_lang):
     """Select appropriate font based on target language"""
-    # Language-specific font mappings
+    # Language-specific font mappings (macOS + Linux paths)
     font_mappings = {
-        'Japanese': ['/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc', '/System/Library/Fonts/Hiragino Sans GB.ttc'],
-        'Chinese': ['/System/Library/Fonts/PingFang.ttc', '/System/Library/Fonts/STHeiti Light.ttc'],
-        'Korean': ['/System/Library/Fonts/AppleSDGothicNeo.ttc', '/System/Library/Fonts/NanumGothic.ttc'],
-        'Arabic': ['/System/Library/Fonts/GeezaPro.ttc', '/System/Library/Fonts/Baghdad.ttc'],
-        'Hindi': ['/System/Library/Fonts/Kohinoor.ttc', '/System/Library/Fonts/DevanagariMT.ttc'],
-        'Russian': ['/Library/Fonts/Arial Unicode.ttf', '/System/Library/Fonts/Helvetica.ttc']
+        'Japanese': [
+            '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc',
+            '/System/Library/Fonts/Hiragino Sans GB.ttc',
+            '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+            '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+            '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc',
+        ],
+        'Chinese': [
+            '/System/Library/Fonts/PingFang.ttc',
+            '/System/Library/Fonts/STHeiti Light.ttc',
+            '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+            '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+            '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc',
+        ],
+        'Korean': [
+            '/System/Library/Fonts/AppleSDGothicNeo.ttc',
+            '/System/Library/Fonts/NanumGothic.ttc',
+            '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+            '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+            '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc',
+        ],
+        'Arabic': [
+            '/System/Library/Fonts/GeezaPro.ttc',
+            '/System/Library/Fonts/Baghdad.ttc',
+            '/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf',
+            '/usr/share/fonts/noto/NotoSansArabic-Regular.ttf',
+        ],
+        'Hindi': [
+            '/System/Library/Fonts/Kohinoor.ttc',
+            '/System/Library/Fonts/DevanagariMT.ttc',
+            '/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf',
+            '/usr/share/fonts/noto/NotoSansDevanagari-Regular.ttf',
+        ],
+        'Russian': [
+            '/Library/Fonts/Arial Unicode.ttf',
+            '/System/Library/Fonts/Helvetica.ttc',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+        ],
     }
-    
-    # Default fonts for other languages
+
+    # Default fonts (macOS + Linux)
     default_fonts = [
         "/Library/Fonts/Arial Unicode.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
-        "/System/Library/Fonts/HelveticaNeue.ttc"
+        "/System/Library/Fonts/HelveticaNeue.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
     ]
-    
+
     # Get fonts for the target language
     language_fonts = font_mappings.get(target_lang, [])
     all_fonts = language_fonts + default_fonts
-    
+
     # Find first available font
     for font_path in all_fonts:
         if os.path.exists(font_path):
             return font_path
-    
+
+    # Ultimate fallback: matplotlib's bundled DejaVuSans
+    mpl_font = _find_matplotlib_font()
+    if mpl_font:
+        return mpl_font
+
     return None
 
 def draw_text_in_bubble(draw, text, bubble_info, target_lang="English", max_font_size=40, debug=False):
@@ -402,7 +441,7 @@ async def process_comic_page_with_languages(image_path, output_path, api_key=Non
     
     # Extract text from each bubble using async approach
     logger.info("📖 Extracting text from bubbles asynchronously...")
-    client = AsyncClient()
+    client = AsyncOpenAI()
     t0_extract = time.time()
     
     # Create tasks for text extraction
@@ -416,24 +455,29 @@ async def process_comic_page_with_languages(image_path, output_path, api_key=Non
     tf_extract = time.time()
     logger.info(f"Time taken to extract text from bubbles: {tf_extract - t0_extract:.2f} seconds")
     
-    # Assign extracted text to bubbles
+    # Assign extracted text to bubbles and build translation context
+    context_manager = TranslationContext()
     for i, bubble in enumerate(bubble_data):
         bubble['original_text'] = extraction_results[i]
         logger.info(f"Bubble {bubble['bubble_id']}: {bubble['original_text']}")
-    
+        # Add original text to context so all translations see surrounding dialogue
+        if bubble['original_text'] not in ["EMPTY", "ERROR"]:
+            context_manager.add_bubble_to_context(bubble['bubble_id'], bubble['original_text'])
+
     # Translate texts asynchronously
     logger.info(f"🌐 Translating from {source_lang} to {target_lang}...")
     t0_translate = time.time()
-    
+
     # Create translation tasks only for bubbles with text
     translation_tasks = []
     translation_indices = []  # Track which bubbles are being translated
-    
+
     for i, bubble in enumerate(bubble_data):
         if bubble['original_text'] not in ["EMPTY", "ERROR"]:
             translation_tasks.append(translate_text_async(
                 client,
                 bubble['original_text'],
+                context_manager=context_manager,
                 bubble_id=bubble['bubble_id'],
                 source_lang=source_lang,
                 target_lang=target_lang,
@@ -443,18 +487,18 @@ async def process_comic_page_with_languages(image_path, output_path, api_key=Non
         else:
             logger.info(f"Bubble {bubble['bubble_id']} is empty or error. Skipping translation.")
             bubble['translated_text'] = bubble['original_text']
-    
+
     # Execute translation tasks if any exist
     if translation_tasks:
         translation_results = await asyncio.gather(*translation_tasks)
-        
+
         # Assign translation results to the correct bubbles
         for task_index, bubble_index in enumerate(translation_indices):
             bubble_data[bubble_index]['translated_text'] = translation_results[task_index]
             if debug:
                 logger.info(f"✓ {bubble_data[bubble_index]['original_text']} → {bubble_data[bubble_index]['translated_text']}")
     
-    await client.aclose()
+    await client.close()
     
     tf_translate = time.time()
     translated_count = len(translation_tasks)
@@ -519,5 +563,5 @@ if __name__ == "__main__":
     if debug_mode:
         print("🐛 Debug mode enabled - showing detailed translation")
     
-    asyncio.run(process_comic_page_with_languages(image_path, output_path, source_lang="Japanese", target_lang="English", debug=debug_mode)) 
+    process_comic_page_with_languages(image_path, output_path, debug=debug_mode) 
 # %%

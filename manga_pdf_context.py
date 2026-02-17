@@ -1,9 +1,9 @@
 
 import os
-api_key = os.getenv("LLAMA_API_KEY")
+api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
-    raise ValueError("LLAMA_API_KEY environment variable not set")
-from llama_api_client import LlamaAPIClient
+    raise ValueError("OPENAI_API_KEY environment variable not set")
+from openai import OpenAI
 
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -19,11 +19,11 @@ from typing import Dict, List, Set
 class MangaAnalyzer:
     def __init__(self):
         # Check for API key
-        api_key = os.getenv("LLAMA_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ValueError("LLAMA_API_KEY environment variable not set")
-        
-        self.client = LlamaAPIClient()
+            raise ValueError("OPENAI_API_KEY environment variable not set")
+
+        self.client = OpenAI()
         self.characters = {}  # Store character information
         self.plot_points = []  # Store major plot points
         self.current_context = ""  # Maintain running context
@@ -51,7 +51,7 @@ Provide the analysis in a structured way."""
 
         try:
             response = self.client.chat.completions.create(
-                model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "user",
@@ -72,7 +72,7 @@ Provide the analysis in a structured way."""
             )
             
             # Get the initial analysis
-            initial_analysis = response.completion_message.content.text
+            initial_analysis = response.choices[0].message.content
 
             # Now ask for structured data about characters and plot
             structured_prompt = f"""Based on this analysis: {initial_analysis}
@@ -86,7 +86,7 @@ Please provide a structured response in the following format:
 Format the response to be easily parsed as structured data."""
 
             structured_response = self.client.chat.completions.create(
-                model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "user",
@@ -96,14 +96,14 @@ Format the response to be easily parsed as structured data."""
             )
 
             # Update the running context with new information
-            self.update_context(structured_response.completion_message.content.text)
+            self.update_context(structured_response.choices[0].message.content)
             
             return {
                 "page_number": page_num,
                 "raw_analysis": initial_analysis,
-                "structured_analysis": structured_response.completion_message.content.text,
-                "characters_present": self.extract_characters(structured_response.completion_message.content.text),
-                "plot_developments": self.extract_plot_points(structured_response.completion_message.content.text)
+                "structured_analysis": structured_response.choices[0].message.content,
+                "characters_present": self.extract_characters(structured_response.choices[0].message.content),
+                "plot_developments": self.extract_plot_points(structured_response.choices[0].message.content)
             }
             
         except Exception as e:
@@ -117,7 +117,7 @@ Format the response to be easily parsed as structured data."""
         # Keep a running summary of the last few important events
         # Limit context to prevent token overflow
         context_summary = self.client.chat.completions.create(
-            model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -133,7 +133,7 @@ Format the response to be easily parsed as structured data."""
         character_prompt = f"Based on this analysis: {analysis}\n\nList all characters mentioned and their current state/actions in a structured format."
         
         character_response = self.client.chat.completions.create(
-            model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -143,14 +143,14 @@ Format the response to be easily parsed as structured data."""
         )
         
         # Update character dictionary with new information
-        return character_response.completion_message.content.text
+        return character_response.choices[0].message.content
 
     def extract_plot_points(self, analysis: str) -> List[str]:
         # Extract key plot points from the analysis
         plot_prompt = f"Based on this analysis: {analysis}\n\nList the key plot developments in bullet points."
         
         plot_response = self.client.chat.completions.create(
-            model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -159,7 +159,7 @@ Format the response to be easily parsed as structured data."""
             ]
         )
         
-        return plot_response.completion_message.content.text
+        return plot_response.choices[0].message.content
 
     def analyze_manga_pdf(self, pdf_path: str, output_json_path: str):
         print("Converting PDF to images...")
@@ -192,7 +192,7 @@ Provide:
 4. Predictions or open plot threads"""
 
                 summary = self.client.chat.completions.create(
-                    model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+                    model="gpt-4o",
                     messages=[
                         {
                             "role": "user",
@@ -228,7 +228,7 @@ Provide a comprehensive analysis including:
 5. Significant plot twists or revelations"""
 
         final_response = self.client.chat.completions.create(
-            model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -238,16 +238,16 @@ Provide a comprehensive analysis including:
         )
         
         return {
-            "final_analysis": final_response.completion_message.content.text,
-            "themes": self.extract_themes(final_response.completion_message.content.text),
-            "character_arcs": self.extract_character_arcs(final_response.completion_message.content.text)
+            "final_analysis": final_response.choices[0].message.content,
+            "themes": self.extract_themes(final_response.choices[0].message.content),
+            "character_arcs": self.extract_character_arcs(final_response.choices[0].message.content)
         }
 
     def extract_themes(self, analysis: str) -> List[str]:
         theme_prompt = f"Based on this analysis: {analysis}\n\nList the main themes and motifs of the story."
         
         theme_response = self.client.chat.completions.create(
-            model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -256,13 +256,13 @@ Provide a comprehensive analysis including:
             ]
         )
         
-        return theme_response.completion_message.content.text
+        return theme_response.choices[0].message.content
 
     def extract_character_arcs(self, analysis: str) -> Dict:
         arc_prompt = f"Based on this analysis: {analysis}\n\nDescribe the development arc for each main character."
         
         arc_response = self.client.chat.completions.create(
-            model="Llama-4-Maverick-17B-128E-Instruct-FP8",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -271,7 +271,7 @@ Provide a comprehensive analysis including:
             ]
         )
         
-        return arc_response.completion_message.content.text
+        return arc_response.choices[0].message.content
 
 if __name__ == "__main__":
     pdf_path = "avatar_test.pdf"

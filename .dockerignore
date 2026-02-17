@@ -1,0 +1,32 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node (we rebuild in Docker)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Runtime artifacts
+uploads/
+outputs/
+logs/
+*.log
+
+# Model weights (downloaded at build time)
+weights/
+*.pt
+
+# Dev files
+.env
+.git/
+.gitignore
+.vscode/
+.idea/
+trenaudie/
+
+# Temp files
+temp_bubble_*
+translated_comic_*
+images/

@@ -1,11 +1,13 @@
 flask
+gunicorn
 openai
 python-dotenv
 Pillow
 opencv-python-headless
 numpy
 ultralytics
-textwrap3
 pdf2image
 PyMuPDF
 tqdm
+huggingface_hub
+matplotlib

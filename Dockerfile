@@ -65,10 +65,4 @@ ENV QT_QPA_PLATFORM=offscreen \
 
 EXPOSE 8080
 
-CMD ["gunicorn", "app:app", \
-     "--bind", "0.0.0.0:8080", \
-     "--workers", "2", \
-     "--threads", "4", \
-     "--timeout", "300", \
-     "--max-requests", "100", \
-     "--max-requests-jitter", "20"]
+CMD sh -c "gunicorn app:app --bind 0.0.0.0:${PORT:-8080} --workers 2 --threads 4 --timeout 300 --max-requests 100 --max-requests-jitter 20"

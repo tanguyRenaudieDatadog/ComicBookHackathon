@@ -27,7 +27,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python deps first (cache layer)
+# Install PyTorch CPU-only FIRST (avoids 2.5GB CUDA download from ultralytics)
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining Python deps (ultralytics will skip torch since it's already installed)
 COPY requirements.txt constraints.txt ./
 RUN pip install --no-cache-dir -c constraints.txt -r requirements.txt
 
@@ -61,9 +64,6 @@ ENV QT_QPA_PLATFORM=offscreen \
     PORT=8080
 
 EXPOSE 8080
-
-# Use gunicorn for production (more robust than Flask dev server)
-RUN pip install --no-cache-dir gunicorn
 
 CMD ["gunicorn", "app:app", \
      "--bind", "0.0.0.0:8080", \
